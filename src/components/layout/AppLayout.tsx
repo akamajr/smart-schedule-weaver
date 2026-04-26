@@ -9,7 +9,7 @@ export const AppLayout = () => {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <div className="hidden md:block">
+      <div className="hidden md:block sticky top-0 h-screen">
         <Sidebar />
       </div>
 

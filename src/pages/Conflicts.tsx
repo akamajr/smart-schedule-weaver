@@ -1,117 +1,158 @@
 import { useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { conflicts as seed, Conflict } from "@/lib/mockData";
-import { AlertTriangle, Users, DoorOpen, BookOpen, Check, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, X, Wand2, Pencil, Lightbulb, Zap, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const typeMap = {
-  lecturer: { icon: Users, label: "Lecturer Conflict", color: "destructive" as const },
-  room: { icon: DoorOpen, label: "Room Conflict", color: "warning" as const },
-  course: { icon: BookOpen, label: "Course Overlap", color: "info" as const },
-};
-
-const colorClasses = {
-  destructive: { bg: "bg-destructive/10", text: "text-destructive", ring: "ring-destructive/20" },
-  warning: { bg: "bg-warning/10", text: "text-warning", ring: "ring-warning/20" },
-  info: { bg: "bg-info/10", text: "text-info", ring: "ring-info/20" },
-};
+import { StatCard } from "@/components/StatCard";
 
 const Conflicts = () => {
   const [items, setItems] = useState<Conflict[]>(seed);
-  const [filter, setFilter] = useState<"all" | "lecturer" | "room" | "course">("all");
 
-  const visible = filter === "all" ? items : items.filter((c) => c.type === filter);
+  const dismiss = (id: string) => {
+    setItems((p) => p.filter((c) => c.id !== id));
+    toast.success("Conflict dismissed");
+  };
+  const accept = (id: string) => {
+    setItems((p) => p.filter((c) => c.id !== id));
+    toast.success("Recommendation applied");
+  };
 
-  const resolve = (id: string) => {
-    setItems((p) => p.filter((c) => c.id !== id));
-    toast.success("Conflict resolved");
-  };
-  const ignore = (id: string) => {
-    setItems((p) => p.filter((c) => c.id !== id));
-    toast.info("Conflict ignored");
-  };
+  const critical = items.filter((c) => c.severity === "critical").length;
+  const medium = items.filter((c) => c.severity === "medium").length;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Conflict Management"
-        description="Review and resolve scheduling conflicts in one place."
-      />
-
-      <div className="flex flex-wrap gap-2">
-        {[
-          { k: "all", label: "All", count: items.length },
-          { k: "lecturer", label: "Lecturer", count: items.filter((c) => c.type === "lecturer").length },
-          { k: "room", label: "Room", count: items.filter((c) => c.type === "room").length },
-          { k: "course", label: "Course", count: items.filter((c) => c.type === "course").length },
-        ].map((t) => (
-          <button
-            key={t.k}
-            onClick={() => setFilter(t.k as any)}
-            className={cn(
-              "rounded-xl border px-4 py-2 text-sm font-medium transition-smooth",
-              filter === t.k
-                ? "border-primary bg-primary text-primary-foreground shadow-glow"
-                : "border-border bg-card hover:border-primary/40"
-            )}
-          >
-            {t.label} <span className="ml-1 opacity-70">({t.count})</span>
-          </button>
-        ))}
+      <div>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">AI Conflict Resolution Hub</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Review and resolve scheduling optimization errors.</p>
       </div>
 
-      {visible.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-card py-16 text-center shadow-soft">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/10 text-success">
-            <Check className="h-6 w-6" />
+      {/* Summary cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard title="Total Hard Conflicts" value={critical} icon={AlertCircle} accent="primary" trend="Critical" />
+        <StatCard title="Medium Conflicts" value={medium} icon={AlertTriangle} accent="warning" trend="Medium" />
+        <div className="relative overflow-hidden rounded-2xl gradient-deep p-5 text-primary-foreground shadow-glow">
+          <div className="flex items-start justify-between">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+              <Zap className="h-5 w-5" />
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-white/70">Real-Time</span>
           </div>
-          <p className="font-display text-lg font-semibold">All clear!</p>
-          <p className="text-sm text-muted-foreground">No conflicts in this category.</p>
+          <p className="mt-6 font-display text-4xl font-bold">98%</p>
+          <p className="mt-1 text-sm text-white/85">System Status: Optimized</p>
+          <ShieldCheck className="pointer-events-none absolute -right-4 -bottom-4 h-32 w-32 text-white/10" strokeWidth={1} />
         </div>
+      </div>
+
+      {/* Live update header */}
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-xl font-bold">Active Conflict Decision Feed</h2>
+        <span className="rounded-full bg-primary-soft px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+          Live update
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState />
       ) : (
-        <div className="grid gap-3">
-          {visible.map((c) => {
-            const meta = typeMap[c.type];
-            const Icon = meta.icon;
-            const cc = colorClasses[meta.color];
-            return (
-              <div
-                key={c.id}
-                className={cn(
-                  "flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-soft transition-smooth hover:shadow-elegant md:flex-row md:items-center",
-                  "ring-1", cc.ring
-                )}
-              >
-                <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", cc.bg, cc.text)}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider", cc.bg, cc.text)}>
-                      {meta.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{c.day} · {c.time}</span>
-                  </div>
-                  <p className="mt-1 font-semibold">{c.description}</p>
-                  <p className="text-sm text-muted-foreground">{c.details}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="rounded-xl" onClick={() => ignore(c.id)}>
-                    <X className="mr-1.5 h-3.5 w-3.5" /> Ignore
-                  </Button>
-                  <Button className="rounded-xl gradient-primary text-primary-foreground" onClick={() => resolve(c.id)}>
-                    <Check className="mr-1.5 h-3.5 w-3.5" /> Resolve
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="space-y-4">
+          {items.map((c) => <ConflictCard key={c.id} c={c} onDismiss={dismiss} onAccept={accept} />)}
         </div>
       )}
+
+      {/* Smart Tip */}
+      <div className="rounded-3xl border border-primary/20 bg-primary-soft/60 p-5 shadow-card">
+        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Lightbulb className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Smart Tip</p>
+              <p className="mt-1 max-w-2xl text-sm font-medium text-foreground">
+                Our AI suggests moving CS301 to the Main Library Annex (Room B). It has the same seating
+                capacity and is currently free during that time slot.
+              </p>
+            </div>
+          </div>
+          <Button className="rounded-2xl gradient-deep text-primary-foreground shadow-glow" onClick={() => toast.success("Quick Apply executed")}>
+            Quick Apply
+          </Button>
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Last synced: Today, 11:42 AM • Conflict engine version 2.4.1
+      </p>
     </div>
   );
 };
+
+const ConflictCard = ({
+  c, onDismiss, onAccept,
+}: { c: Conflict; onDismiss: (id: string) => void; onAccept: (id: string) => void }) => {
+  const isCritical = c.severity === "critical";
+  return (
+    <div className={cn(
+      "overflow-hidden rounded-3xl border bg-card shadow-card",
+      isCritical ? "border-destructive/20" : "border-warning/20"
+    )}>
+      <div className={cn("flex border-l-4", isCritical ? "border-destructive" : "border-warning")}>
+        <div className="flex-1 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={cn(
+              "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
+              isCritical ? "bg-destructive/10 text-destructive" : "bg-warning/15 text-warning"
+            )}>
+              {c.category}
+            </span>
+            <span className="text-xs text-muted-foreground">Detected {c.detectedAgo}</span>
+          </div>
+
+          <h3 className="mt-3 font-display text-xl font-bold uppercase tracking-tight">{c.title}</h3>
+
+          <div className="mt-4 rounded-2xl border-l-4 border-primary/40 bg-primary-soft/50 p-4">
+            <p className="text-sm italic leading-relaxed text-muted-foreground">"{c.description}"</p>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <Button className="rounded-xl bg-success text-success-foreground hover:bg-success/90" onClick={() => onAccept(c.id)}>
+              <Wand2 className="mr-2 h-4 w-4" /> System Recommendation
+            </Button>
+            <Button variant="outline" className="rounded-xl border-primary/30 text-primary hover:bg-primary-soft" onClick={() => toast.info("Open editor")}>
+              <Pencil className="mr-2 h-4 w-4" /> Manual Edit
+            </Button>
+            <Button variant="ghost" className="rounded-xl text-muted-foreground hover:bg-secondary" onClick={() => onDismiss(c.id)}>
+              Ignore Warning
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-start justify-end p-5">
+          <button
+            onClick={() => onDismiss(c.id)}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-lg transition-smooth",
+              isCritical ? "bg-destructive/10 text-destructive hover:bg-destructive/20" : "bg-warning/15 text-warning hover:bg-warning/25"
+            )}
+          >
+            {isCritical ? <X className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EmptyState = () => (
+  <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card py-16 text-center shadow-card">
+    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/10 text-success">
+      <ShieldCheck className="h-6 w-6" />
+    </div>
+    <p className="font-display text-lg font-semibold">All clear!</p>
+    <p className="text-sm text-muted-foreground">No active conflicts in the queue.</p>
+  </div>
+);
 
 export default Conflicts;

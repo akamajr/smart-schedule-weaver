@@ -10,23 +10,27 @@ import {
   Settings,
   LogOut,
   CalendarCheck,
+  GraduationCap,
+  HelpCircle,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const adminLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/courses", label: "Courses", icon: BookOpen },
   { to: "/lecturers", label: "Lecturers", icon: Users },
   { to: "/classrooms", label: "Classrooms", icon: DoorOpen },
-  { to: "/generator", label: "Timetable Generator", icon: CalendarRange },
-  { to: "/ai", label: "AI Scheduler", icon: Sparkles },
-  { to: "/conflicts", label: "Conflicts", icon: AlertTriangle },
-  { to: "/settings", label: "Settings & Users", icon: Settings },
+  { to: "/generator", label: "AI Generator", icon: Sparkles },
+  { to: "/conflicts", label: "Conflicts & Alerts", icon: AlertTriangle },
+  { to: "/ai", label: "Resource Lab", icon: CalendarRange },
+  { to: "/settings", label: "System Settings", icon: Settings },
 ];
 
 const lecturerLinks = [
-  { to: "/my-timetable", label: "My Timetable", icon: CalendarCheck },
+  { to: "/my-timetable", label: "My Schedule", icon: CalendarCheck },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -34,7 +38,8 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const links = user?.role === "Admin" ? adminLinks : lecturerLinks;
+  const isAdmin = user?.role === "Admin";
+  const links = isAdmin ? adminLinks : lecturerLinks;
 
   const handleLogout = () => {
     logout();
@@ -42,18 +47,21 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   };
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-border bg-sidebar">
-      <div className="flex h-16 items-center gap-2 border-b border-border px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary shadow-glow">
-          <CalendarRange className="h-5 w-5 text-primary-foreground" />
+    <aside className="flex h-screen w-64 flex-col border-r border-border bg-sidebar">
+      {/* Brand */}
+      <div className="flex items-center gap-3 px-6 pt-7 pb-6">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-deep shadow-glow">
+          <GraduationCap className="h-5 w-5 text-primary-foreground" />
         </div>
         <div>
-          <p className="text-sm font-display font-bold leading-none">SmartTime</p>
-          <p className="text-[10px] text-muted-foreground">Timetable AI</p>
+          <p className="font-display text-base font-bold leading-none">Scholarly</p>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {isAdmin ? "AI Curator" : "Faculty Portal"}
+          </p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3">
         {links.map(({ to, label, icon: Icon }) => {
           const active = location.pathname === to;
           return (
@@ -65,7 +73,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
               )}
             >
               <Icon className={cn("h-4 w-4", active && "text-primary")} />
@@ -75,13 +83,31 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="space-y-3 px-4 pb-3 pt-4">
+        {isAdmin && (
+          <Button
+            onClick={() => navigate("/generator")}
+            className="h-11 w-full rounded-xl gradient-deep text-primary-foreground shadow-glow transition-smooth hover:opacity-95"
+          >
+            <Plus className="mr-1.5 h-4 w-4" /> Quick Schedule
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-1 border-t border-border px-3 py-3">
+        <button
+          onClick={() => {/* support stub */}}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-smooth hover:bg-sidebar-accent/60 hover:text-foreground"
+        >
+          <HelpCircle className="h-4 w-4" />
+          Support
+        </button>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-smooth hover:bg-destructive/10 hover:text-destructive"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-smooth hover:bg-destructive/10"
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          Sign Out
         </button>
       </div>
     </aside>

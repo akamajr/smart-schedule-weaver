@@ -51,22 +51,7 @@ const MyTimetable = () => {
               <div key={d} className="px-2 pb-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">{d}</div>
             ))}
             {timeSlots.map((t) => (
-              <>
-                <div key={t} className="flex items-center justify-end pr-3 text-xs font-medium text-muted-foreground">{t}</div>
-                {days.map((d) => {
-                  const slot = mine.find((s) => s.day === d && s.time === t);
-                  return (
-                    <div key={d + t} className="m-1 min-h-[64px] rounded-xl border border-dashed border-border p-1.5">
-                      {slot && (
-                        <div className="rounded-lg border border-primary/20 bg-primary-soft p-2 text-[11px] text-primary">
-                          <p className="font-mono font-bold">{slot.courseCode}</p>
-                          <p className="truncate text-foreground">{slot.room}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </>
+              <FragmentRow key={t} t={t} days={days} mine={mine} />
             ))}
           </div>
         </div>

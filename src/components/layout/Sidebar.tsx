@@ -31,7 +31,6 @@ const adminLinks = [
 
 const lecturerLinks = [
   { to: "/my-timetable", label: "My Schedule", icon: CalendarCheck },
-  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {

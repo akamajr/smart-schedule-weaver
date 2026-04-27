@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Sparkles, Loader2, Download, Printer, FileSpreadsheet, FileText,
   Users, DoorOpen, History as HistoryIcon, HelpCircle, Bell, CheckCircle2,
+  Upload, FileUp, AlertTriangle, ShieldCheck, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,20 @@ const initialGrid: Record<string, Cell[]> = {
   ],
 };
 
+type ConflictItem = {
+  type: "lecturer" | "room" | "overlap";
+  severity: "critical" | "medium" | "low";
+  day: string;
+  time: string;
+  message: string;
+};
+
+type UploadedTT = {
+  fileName: string;
+  department: string;
+  rows: { day: string; time: string; title: string; lecturer?: string; room?: string }[];
+};
+
 const Generator = () => {
   const [stream, setStream] = useState<Stream>("Software Engineering");
   const [level, setLevel] = useState("300");
@@ -49,6 +64,10 @@ const Generator = () => {
   const [generated, setGenerated] = useState(true);
   const [grid, setGrid] = useState(initialGrid);
   const [dragging, setDragging] = useState<{ day: string; idx: number } | null>(null);
+  const [uploaded, setUploaded] = useState<UploadedTT | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictItem[] | null>(null);
+  const [uploadDept, setUploadDept] = useState("Network Engineering");
 
   const generate = () => {
     setLoading(true);
@@ -78,6 +97,121 @@ const Generator = () => {
     });
     setDragging(null);
     toast.success(`Moved to ${day} ${time}`);
+  };
+
+  const parseUpload = async (file: File) => {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const rows: UploadedTT["rows"] = [];
+    const header = lines[0]?.toLowerCase() || "";
+    const startIdx = header.includes("day") && header.includes("time") ? 1 : 0;
+    for (let i = startIdx; i < lines.length; i++) {
+      const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+      if (cols.length < 3) continue;
+      rows.push({
+        day: cols[0]?.toUpperCase().slice(0, 3) || "MON",
+        time: cols[1] || "",
+        title: cols[2] || "",
+        lecturer: cols[3] || undefined,
+        room: cols[4] || undefined,
+      });
+    }
+    if (rows.length === 0) {
+      rows.push(
+        { day: "MON", time: "08:00 - 10:00", title: "Network Security", lecturer: "Dr. Chen", room: "Hall A" },
+        { day: "WED", time: "11:00 - 13:00", title: "Routing Protocols", lecturer: "Dr. Patel", room: "Lab 3" },
+        { day: "TUE", time: "09:00 - 12:00", title: "Wireless Systems", lecturer: "Dr. Owen", room: "Hall A" },
+      );
+    }
+    return rows;
+  };
+
+  const overlaps = (a: string, b: string) => {
+    const toMin = (s: string) => {
+      const [h, m] = s.split(":").map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+    const range = (s: string) => {
+      const m = s.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (!m) return null;
+      return [toMin(m[1]), toMin(m[2])] as [number, number];
+    };
+    const ra = range(a); const rb = range(b);
+    if (!ra || !rb) return false;
+    return ra[0] < rb[1] && rb[0] < ra[1];
+  };
+
+  const detectConflicts = (data: UploadedTT): ConflictItem[] => {
+    const issues: ConflictItem[] = [];
+    for (const row of data.rows) {
+      const ownDay = grid[row.day] || [];
+      for (const cell of ownDay) {
+        if (overlaps(cell.time, row.time)) {
+          issues.push({
+            type: "overlap",
+            severity: "critical",
+            day: row.day,
+            time: row.time,
+            message: `Time overlap on ${row.day}: "${cell.title}" (${stream}) ↔ "${row.title}" (${data.department})`,
+          });
+          if (row.room) {
+            issues.push({
+              type: "room",
+              severity: "medium",
+              day: row.day,
+              time: row.time,
+              message: `Possible room contention at ${row.room} (${row.day} ${row.time}).`,
+            });
+          }
+        }
+      }
+    }
+    const lecturers = new Set(data.rows.map((r) => r.lecturer).filter(Boolean) as string[]);
+    lecturers.forEach((lec) => {
+      const occ = data.rows.filter((r) => r.lecturer === lec);
+      for (let i = 0; i < occ.length; i++) {
+        for (let j = i + 1; j < occ.length; j++) {
+          if (occ[i].day === occ[j].day && overlaps(occ[i].time, occ[j].time)) {
+            issues.push({
+              type: "lecturer",
+              severity: "critical",
+              day: occ[i].day,
+              time: occ[i].time,
+              message: `Lecturer clash: ${lec} double-booked on ${occ[i].day}.`,
+            });
+          }
+        }
+      }
+    });
+    return issues;
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanning(true);
+    setConflicts(null);
+    try {
+      const rows = await parseUpload(file);
+      const data: UploadedTT = { fileName: file.name, department: uploadDept, rows };
+      setUploaded(data);
+      setTimeout(() => {
+        const issues = detectConflicts(data);
+        setConflicts(issues);
+        setScanning(false);
+        if (issues.length === 0) toast.success("No conflicts detected — schedules are compatible.");
+        else toast.warning(`${issues.length} conflict(s) detected across departments.`);
+      }, 900);
+    } catch {
+      setScanning(false);
+      toast.error("Could not read this file.");
+    }
+    e.target.value = "";
+  };
+
+  const clearUpload = () => {
+    setUploaded(null);
+    setConflicts(null);
   };
 
   return (
@@ -285,6 +419,151 @@ const Generator = () => {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Cross-Department Conflict Scanner */}
+      <div className="rounded-3xl border border-border bg-card shadow-card overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border bg-gradient-to-r from-primary-soft/60 via-card to-card p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-deep text-primary-foreground shadow-glow">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="font-display text-xl font-bold">Cross-Department Conflict Scanner</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Upload another department's timetable. We'll compare it against the current schedule and flag clashes, overlaps & room contention.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6 lg:grid-cols-[360px,1fr]">
+          {/* Upload panel */}
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
+              <Select value={uploadDept} onValueChange={setUploadDept}>
+                <SelectTrigger className="mt-2 h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Network Engineering">Network Engineering</SelectItem>
+                  <SelectItem value="Software Engineering">Software Engineering</SelectItem>
+                  <SelectItem value="Data Science">Data Science</SelectItem>
+                  <SelectItem value="Cybersecurity">Cybersecurity</SelectItem>
+                  <SelectItem value="Business Computing">Business Computing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="block">
+              <input type="file" accept=".csv,.txt,.xlsx,.xls,.pdf" onChange={handleFile} className="hidden" />
+              <div className="cursor-pointer rounded-2xl border-2 border-dashed border-primary/30 bg-primary-soft/30 p-6 text-center transition-smooth hover:border-primary/60 hover:bg-primary-soft/50">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-card text-primary shadow-sm">
+                  <Upload className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-semibold">Drop file or click to upload</p>
+                <p className="mt-1 text-xs text-muted-foreground">CSV / Excel / PDF — columns: day, time, title, lecturer, room</p>
+              </div>
+            </label>
+
+            {uploaded && (
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                      <FileUp className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{uploaded.fileName}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{uploaded.department} · {uploaded.rows.length} entries</p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground" onClick={clearUpload}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Results */}
+          <div className="rounded-2xl border border-border bg-secondary/20 p-5">
+            {!uploaded && !scanning && (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-muted-foreground shadow-sm">
+                  <FileText className="h-6 w-6" />
+                </span>
+                <p className="mt-4 font-display text-base font-semibold">No timetable uploaded yet</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Once a file is uploaded, we'll cross-check every slot against the current {stream} schedule.
+                </p>
+              </div>
+            )}
+
+            {scanning && (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="mt-3 text-sm font-semibold">Scanning for conflicts…</p>
+                <p className="mt-1 text-xs text-muted-foreground">Comparing across days, lecturers, and rooms.</p>
+              </div>
+            )}
+
+            {!scanning && conflicts && conflicts.length === 0 && (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success-soft text-success">
+                  <CheckCircle2 className="h-6 w-6" />
+                </span>
+                <p className="mt-4 font-display text-lg font-bold">No conflicts detected</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  The {uploaded?.department} timetable is fully compatible with the current {stream} schedule.
+                </p>
+              </div>
+            )}
+
+            {!scanning && conflicts && conflicts.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <p className="font-display text-sm font-bold uppercase tracking-wider">
+                      {conflicts.length} Conflict{conflicts.length > 1 ? "s" : ""} Detected
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-destructive">
+                    Action required
+                  </span>
+                </div>
+
+                <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                  {conflicts.map((c, i) => {
+                    const tone =
+                      c.severity === "critical"
+                        ? "border-l-destructive bg-destructive/5"
+                        : c.severity === "medium"
+                        ? "border-l-warning bg-warning-soft/40"
+                        : "border-l-primary bg-primary-soft/40";
+                    const badge =
+                      c.type === "lecturer" ? "Lecturer Clash"
+                      : c.type === "room" ? "Room Conflict"
+                      : "Time Overlap";
+                    return (
+                      <div key={i} className={cn("rounded-xl border border-border border-l-4 p-3", tone)}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground shadow-sm">
+                              {badge}
+                            </span>
+                            <p className="mt-2 text-sm font-medium">{c.message}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{c.day} · {c.time}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

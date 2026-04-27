@@ -40,7 +40,7 @@ const App = () => (
               <Route path="/generator" element={<ProtectedRoute roles={["Admin"]}><Generator /></ProtectedRoute>} />
               <Route path="/ai" element={<ProtectedRoute roles={["Admin"]}><AIScheduler /></ProtectedRoute>} />
               <Route path="/conflicts" element={<ProtectedRoute roles={["Admin"]}><Conflicts /></ProtectedRoute>} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={<ProtectedRoute roles={["Admin"]}><Settings /></ProtectedRoute>} />
               <Route path="/my-timetable" element={<ProtectedRoute roles={["Lecturer"]}><MyTimetable /></ProtectedRoute>} />
             </Route>
 

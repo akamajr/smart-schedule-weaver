@@ -41,6 +41,20 @@ const initialGrid: Record<string, Cell[]> = {
   ],
 };
 
+type ConflictItem = {
+  type: "lecturer" | "room" | "overlap";
+  severity: "critical" | "medium" | "low";
+  day: string;
+  time: string;
+  message: string;
+};
+
+type UploadedTT = {
+  fileName: string;
+  department: string;
+  rows: { day: string; time: string; title: string; lecturer?: string; room?: string }[];
+};
+
 const Generator = () => {
   const [stream, setStream] = useState<Stream>("Software Engineering");
   const [level, setLevel] = useState("300");
@@ -50,6 +64,10 @@ const Generator = () => {
   const [generated, setGenerated] = useState(true);
   const [grid, setGrid] = useState(initialGrid);
   const [dragging, setDragging] = useState<{ day: string; idx: number } | null>(null);
+  const [uploaded, setUploaded] = useState<UploadedTT | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictItem[] | null>(null);
+  const [uploadDept, setUploadDept] = useState("Network Engineering");
 
   const generate = () => {
     setLoading(true);

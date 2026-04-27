@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Sparkles, Loader2, Download, Printer, FileSpreadsheet, FileText,
   Users, DoorOpen, History as HistoryIcon, HelpCircle, Bell, CheckCircle2,
+  Upload, FileUp, AlertTriangle, ShieldCheck, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

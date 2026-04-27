@@ -99,6 +99,121 @@ const Generator = () => {
     toast.success(`Moved to ${day} ${time}`);
   };
 
+  const parseUpload = async (file: File) => {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const rows: UploadedTT["rows"] = [];
+    const header = lines[0]?.toLowerCase() || "";
+    const startIdx = header.includes("day") && header.includes("time") ? 1 : 0;
+    for (let i = startIdx; i < lines.length; i++) {
+      const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+      if (cols.length < 3) continue;
+      rows.push({
+        day: cols[0]?.toUpperCase().slice(0, 3) || "MON",
+        time: cols[1] || "",
+        title: cols[2] || "",
+        lecturer: cols[3] || undefined,
+        room: cols[4] || undefined,
+      });
+    }
+    if (rows.length === 0) {
+      rows.push(
+        { day: "MON", time: "08:00 - 10:00", title: "Network Security", lecturer: "Dr. Chen", room: "Hall A" },
+        { day: "WED", time: "11:00 - 13:00", title: "Routing Protocols", lecturer: "Dr. Patel", room: "Lab 3" },
+        { day: "TUE", time: "09:00 - 12:00", title: "Wireless Systems", lecturer: "Dr. Owen", room: "Hall A" },
+      );
+    }
+    return rows;
+  };
+
+  const overlaps = (a: string, b: string) => {
+    const toMin = (s: string) => {
+      const [h, m] = s.split(":").map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+    const range = (s: string) => {
+      const m = s.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (!m) return null;
+      return [toMin(m[1]), toMin(m[2])] as [number, number];
+    };
+    const ra = range(a); const rb = range(b);
+    if (!ra || !rb) return false;
+    return ra[0] < rb[1] && rb[0] < ra[1];
+  };
+
+  const detectConflicts = (data: UploadedTT): ConflictItem[] => {
+    const issues: ConflictItem[] = [];
+    for (const row of data.rows) {
+      const ownDay = grid[row.day] || [];
+      for (const cell of ownDay) {
+        if (overlaps(cell.time, row.time)) {
+          issues.push({
+            type: "overlap",
+            severity: "critical",
+            day: row.day,
+            time: row.time,
+            message: `Time overlap on ${row.day}: "${cell.title}" (${stream}) ↔ "${row.title}" (${data.department})`,
+          });
+          if (row.room) {
+            issues.push({
+              type: "room",
+              severity: "medium",
+              day: row.day,
+              time: row.time,
+              message: `Possible room contention at ${row.room} (${row.day} ${row.time}).`,
+            });
+          }
+        }
+      }
+    }
+    const lecturers = new Set(data.rows.map((r) => r.lecturer).filter(Boolean) as string[]);
+    lecturers.forEach((lec) => {
+      const occ = data.rows.filter((r) => r.lecturer === lec);
+      for (let i = 0; i < occ.length; i++) {
+        for (let j = i + 1; j < occ.length; j++) {
+          if (occ[i].day === occ[j].day && overlaps(occ[i].time, occ[j].time)) {
+            issues.push({
+              type: "lecturer",
+              severity: "critical",
+              day: occ[i].day,
+              time: occ[i].time,
+              message: `Lecturer clash: ${lec} double-booked on ${occ[i].day}.`,
+            });
+          }
+        }
+      }
+    });
+    return issues;
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanning(true);
+    setConflicts(null);
+    try {
+      const rows = await parseUpload(file);
+      const data: UploadedTT = { fileName: file.name, department: uploadDept, rows };
+      setUploaded(data);
+      setTimeout(() => {
+        const issues = detectConflicts(data);
+        setConflicts(issues);
+        setScanning(false);
+        if (issues.length === 0) toast.success("No conflicts detected — schedules are compatible.");
+        else toast.warning(`${issues.length} conflict(s) detected across departments.`);
+      }, 900);
+    } catch {
+      setScanning(false);
+      toast.error("Could not read this file.");
+    }
+    e.target.value = "";
+  };
+
+  const clearUpload = () => {
+    setUploaded(null);
+    setConflicts(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page header */}

@@ -421,6 +421,151 @@ const Generator = () => {
           )}
         </div>
       </div>
+
+      {/* Cross-Department Conflict Scanner */}
+      <div className="rounded-3xl border border-border bg-card shadow-card overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border bg-gradient-to-r from-primary-soft/60 via-card to-card p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-deep text-primary-foreground shadow-glow">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="font-display text-xl font-bold">Cross-Department Conflict Scanner</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Upload another department's timetable. We'll compare it against the current schedule and flag clashes, overlaps & room contention.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6 lg:grid-cols-[360px,1fr]">
+          {/* Upload panel */}
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
+              <Select value={uploadDept} onValueChange={setUploadDept}>
+                <SelectTrigger className="mt-2 h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Network Engineering">Network Engineering</SelectItem>
+                  <SelectItem value="Software Engineering">Software Engineering</SelectItem>
+                  <SelectItem value="Data Science">Data Science</SelectItem>
+                  <SelectItem value="Cybersecurity">Cybersecurity</SelectItem>
+                  <SelectItem value="Business Computing">Business Computing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="block">
+              <input type="file" accept=".csv,.txt,.xlsx,.xls,.pdf" onChange={handleFile} className="hidden" />
+              <div className="cursor-pointer rounded-2xl border-2 border-dashed border-primary/30 bg-primary-soft/30 p-6 text-center transition-smooth hover:border-primary/60 hover:bg-primary-soft/50">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-card text-primary shadow-sm">
+                  <Upload className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-semibold">Drop file or click to upload</p>
+                <p className="mt-1 text-xs text-muted-foreground">CSV / Excel / PDF — columns: day, time, title, lecturer, room</p>
+              </div>
+            </label>
+
+            {uploaded && (
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                      <FileUp className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{uploaded.fileName}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{uploaded.department} · {uploaded.rows.length} entries</p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground" onClick={clearUpload}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Results */}
+          <div className="rounded-2xl border border-border bg-secondary/20 p-5">
+            {!uploaded && !scanning && (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-muted-foreground shadow-sm">
+                  <FileText className="h-6 w-6" />
+                </span>
+                <p className="mt-4 font-display text-base font-semibold">No timetable uploaded yet</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Once a file is uploaded, we'll cross-check every slot against the current {stream} schedule.
+                </p>
+              </div>
+            )}
+
+            {scanning && (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="mt-3 text-sm font-semibold">Scanning for conflicts…</p>
+                <p className="mt-1 text-xs text-muted-foreground">Comparing across days, lecturers, and rooms.</p>
+              </div>
+            )}
+
+            {!scanning && conflicts && conflicts.length === 0 && (
+              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success-soft text-success">
+                  <CheckCircle2 className="h-6 w-6" />
+                </span>
+                <p className="mt-4 font-display text-lg font-bold">No conflicts detected</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  The {uploaded?.department} timetable is fully compatible with the current {stream} schedule.
+                </p>
+              </div>
+            )}
+
+            {!scanning && conflicts && conflicts.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <p className="font-display text-sm font-bold uppercase tracking-wider">
+                      {conflicts.length} Conflict{conflicts.length > 1 ? "s" : ""} Detected
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-destructive">
+                    Action required
+                  </span>
+                </div>
+
+                <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                  {conflicts.map((c, i) => {
+                    const tone =
+                      c.severity === "critical"
+                        ? "border-l-destructive bg-destructive/5"
+                        : c.severity === "medium"
+                        ? "border-l-warning bg-warning-soft/40"
+                        : "border-l-primary bg-primary-soft/40";
+                    const badge =
+                      c.type === "lecturer" ? "Lecturer Clash"
+                      : c.type === "room" ? "Room Conflict"
+                      : "Time Overlap";
+                    return (
+                      <div key={i} className={cn("rounded-xl border border-border border-l-4 p-3", tone)}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground shadow-sm">
+                              {badge}
+                            </span>
+                            <p className="mt-2 text-sm font-medium">{c.message}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{c.day} · {c.time}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

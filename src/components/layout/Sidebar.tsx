@@ -42,6 +42,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const location = useLocation();
   const isAdmin = user?.role === "Admin";
   const links = isAdmin ? adminLinks : lecturerLinks;
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleLogout = () => {
     logout();

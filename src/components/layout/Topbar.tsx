@@ -81,7 +81,24 @@ export const Topbar = ({ onMenu }: { onMenu?: () => void }) => {
             <p className="text-sm font-semibold leading-none">{user?.role === "Admin" ? "Dr. Julian Vance" : `Dr. ${user?.username}`}</p>
             <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{user?.role === "Admin" ? "Head Administrator" : "Senior Fellow"}</p>
           </div>
-          <InitialsAvatar seed={user?.username || "User"} size={38} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
+                <InitialsAvatar seed={user?.username || "User"} size={38} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+              <DropdownMenuLabel className="flex flex-col gap-0.5">
+                <span>{user?.username}</span>
+                <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

@@ -24,7 +24,7 @@ const Courses = () => {
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
-  const [form, setForm] = useState({ code: "", name: "", lecturerId: "", credits: 3, department: "Computer Science", level: "300", status: "pending" as Course["status"] });
+  const [form, setForm] = useState({ code: "", name: "", lecturerId: "", credits: 3, department: "Computer Engineering", level: "300", semester: "First" as Course["semester"], status: "pending" as Course["status"] });
 
   const departments = useMemo(
     () => Array.from(new Set(items.map((c) => c.department))),

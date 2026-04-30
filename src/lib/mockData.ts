@@ -21,6 +21,7 @@ export type Course = {
   credits: number;
   department: string;
   level: string;
+  semester: "First" | "Second";
   status: "optimized" | "conflicts" | "pending";
 };
 
@@ -66,34 +67,51 @@ export type User = {
 };
 
 export const lecturers: Lecturer[] = [
-  { id: "l1", name: "Dr. Sarah Jenkins", title: "Senior Fellow", email: "s.jenkins@scholarly.edu", department: "Applied Science", status: "online", available: true, courses: ["CS101", "CS210"], preferredRoom: "Hall A", constraints: ["Mon/Wed/Fri", "10 AM - 4 PM"], avatarSeed: "Sarah" },
-  { id: "l2", name: "Prof. Michael Chen", title: "Head of Dept.", email: "m.chen@scholarly.edu", department: "Economics", status: "busy", available: false, courses: ["EC305", "EC410"], preferredRoom: "Hall B", constraints: ["Tue/Thu"], hasOverlap: true, avatarSeed: "Michael" },
-  { id: "l3", name: "Dr. Elena Rossi", title: "Lecturer", email: "e.rossi@scholarly.edu", department: "Mathematics", status: "online", available: true, courses: ["MATH205", "MATH310"], preferredRoom: "Lab 1", constraints: ["Full Week", "8 AM - 2 PM"], avatarSeed: "Elena" },
-  { id: "l4", name: "Dr. David Thorne", title: "Assoc. Professor", email: "d.thorne@scholarly.edu", department: "History", status: "sabbatical", available: false, courses: [], preferredRoom: "Hall C", constraints: ["No recurring constraints"], avatarSeed: "David" },
-  { id: "l5", name: "Dr. Alan Turing", title: "Professor", email: "a.turing@scholarly.edu", department: "Computer Science", status: "online", available: true, courses: ["CS101"], preferredRoom: "Lab 2", constraints: ["Mon/Wed", "9 AM - 5 PM"], avatarSeed: "Alan" },
-  { id: "l6", name: "Prof. Marie Curie", title: "Distinguished", email: "m.curie@scholarly.edu", department: "Applied Physics", status: "busy", available: false, courses: ["PHY302"], preferredRoom: "Lab 1", constraints: ["Tue/Thu/Fri"], hasOverlap: true, avatarSeed: "Marie" },
-  { id: "l7", name: "Dr. Emmy Noether", title: "Professor", email: "e.noether@scholarly.edu", department: "Pure Mathematics", status: "online", available: true, courses: ["MATH205"], preferredRoom: "Hall B", constraints: ["Full Week"], avatarSeed: "Emmy" },
-  { id: "l8", name: "Prof. Jane Doe", title: "Senior Lecturer", email: "j.doe@scholarly.edu", department: "Liberal Arts", status: "online", available: true, courses: ["LIT110"], preferredRoom: "Studio C", constraints: ["Mon/Tue"], avatarSeed: "Jane" },
+  { id: "l1", name: "Dr. Nyanga B", title: "Senior Lecturer", email: "nyanga.b@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC431"], preferredRoom: "U-Block E", constraints: ["Mon/Wed/Fri"], avatarSeed: "Nyanga B" },
+  { id: "l2", name: "Mr. Kometa Dennis", title: "Lecturer", email: "kometa.d@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC427", "CEC315", "CEC418"], preferredRoom: "PEAGOB 1", constraints: ["Tue/Thu"], avatarSeed: "Kometa Dennis" },
+  { id: "l3", name: "Dr. Mellingui Melono", title: "Senior Lecturer", email: "mellingui.m@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC433", "CEC318", "CEC430"], preferredRoom: "PEAGOB 2", constraints: ["Mon/Wed"], avatarSeed: "Mellingui Melono" },
+  { id: "l4", name: "Mr. Nana", title: "Lecturer", email: "nana@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["COT305"], preferredRoom: "CB1 50A", constraints: ["Tue/Fri"], avatarSeed: "Nana" },
+  { id: "l5", name: "Dr. Sone Ekonde", title: "Associate Professor", email: "sone.e@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC461", "CEC304"], preferredRoom: "CB II 50F", constraints: ["Mon/Thu"], avatarSeed: "Sone Ekonde" },
+  { id: "l6", name: "Mr. Nkentenyim D", title: "Lecturer", email: "nkentenyim.d@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC317"], preferredRoom: "CT2", constraints: ["Wed/Fri"], avatarSeed: "Nkentenyim D" },
+  { id: "l7", name: "Mr. Megoze", title: "Lecturer", email: "megoze@ubuea.edu", department: "Computer Engineering", status: "busy", available: false, courses: ["CEC417", "CEC321", "CEC434", "CEC436"], preferredRoom: "Open CT", constraints: ["Full Week"], hasOverlap: true, avatarSeed: "Megoze" },
+  { id: "l8", name: "Mr. Baloko Collins", title: "Lecturer", email: "baloko.c@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC323"], preferredRoom: "CB1 50B", constraints: ["Mon/Wed"], avatarSeed: "Baloko Collins" },
+  { id: "l9", name: "Prof. Moffo", title: "Professor", email: "moffo@ubuea.edu", department: "Computer Engineering", status: "online", available: true, courses: ["CEC412"], preferredRoom: "PEAGOB 4", constraints: ["Tue/Thu"], avatarSeed: "Moffo" },
 ];
 
 export const courses: Course[] = [
-  { id: "c1", code: "CS101", name: "Intro to Computer Science", lecturerId: "l5", credits: 4.0, department: "Computer Science", level: "100", status: "optimized" },
-  { id: "c2", code: "PHY302", name: "Quantum Mechanics II", lecturerId: "l6", credits: 3.0, department: "Applied Physics", level: "300", status: "conflicts" },
-  { id: "c3", code: "MATH205", name: "Linear Algebra", lecturerId: "l7", credits: 4.0, department: "Pure Mathematics", level: "200", status: "optimized" },
-  { id: "c4", code: "LIT110", name: "World Literature", lecturerId: "l8", credits: 2.0, department: "Liberal Arts", level: "100", status: "optimized" },
-  { id: "c5", code: "CS210", name: "Data Structures", lecturerId: "l1", credits: 3.0, department: "Computer Science", level: "200", status: "optimized" },
-  { id: "c6", code: "EC305", name: "Macroeconomics", lecturerId: "l2", credits: 3.0, department: "Economics", level: "300", status: "pending" },
-  { id: "c7", code: "MATH310", name: "Real Analysis", lecturerId: "l3", credits: 4.0, department: "Mathematics", level: "300", status: "optimized" },
-  { id: "c8", code: "EC410", name: "Game Theory", lecturerId: "l2", credits: 3.0, department: "Economics", level: "400", status: "optimized" },
+  // First Semester
+  { id: "c1", code: "CEC431", name: "Software Construction and Quality", lecturerId: "l1", credits: 3.0, department: "Computer Engineering", level: "400", semester: "First", status: "optimized" },
+  { id: "c2", code: "CEC427", name: "Fundamentals of Big Data", lecturerId: "l2", credits: 3.0, department: "Computer Engineering", level: "400", semester: "First", status: "optimized" },
+  { id: "c3", code: "CEC433", name: "Mobile Apps with Embedded Systems", lecturerId: "l3", credits: 3.0, department: "Computer Engineering", level: "400", semester: "First", status: "optimized" },
+  { id: "c4", code: "COT305", name: "Computing Theory", lecturerId: "l4", credits: 3.0, department: "Computer Engineering", level: "300", semester: "First", status: "optimized" },
+  { id: "c5", code: "CEC461", name: "Information Security", lecturerId: "l5", credits: 3.0, department: "Computer Engineering", level: "400", semester: "First", status: "conflicts" },
+  { id: "c6", code: "CEC317", name: "Computer Engineering Course 317", lecturerId: "l6", credits: 3.0, department: "Computer Engineering", level: "300", semester: "First", status: "optimized" },
+  { id: "c7", code: "CEC417", name: "Computer Engineering Course 417", lecturerId: "l7", credits: 3.0, department: "Computer Engineering", level: "400", semester: "First", status: "pending" },
+  { id: "c8", code: "CEC315", name: "Computer Engineering Course 315", lecturerId: "l2", credits: 3.0, department: "Computer Engineering", level: "300", semester: "First", status: "optimized" },
+  { id: "c9", code: "CEC321", name: "Computer Engineering Course 321", lecturerId: "l7", credits: 3.0, department: "Computer Engineering", level: "300", semester: "First", status: "optimized" },
+  { id: "c10", code: "CEC323", name: "Computer Engineering Course 323", lecturerId: "l8", credits: 3.0, department: "Computer Engineering", level: "300", semester: "First", status: "optimized" },
+  // Second Semester
+  { id: "c11", code: "CEC318", name: "Introduction to Mobile Apps", lecturerId: "l3", credits: 3.0, department: "Computer Engineering", level: "300", semester: "Second", status: "optimized" },
+  { id: "c12", code: "CEC304", name: "Data Security and Integrity", lecturerId: "l5", credits: 3.0, department: "Computer Engineering", level: "300", semester: "Second", status: "optimized" },
+  { id: "c13", code: "CEC412", name: "Virtual Instruments", lecturerId: "l9", credits: 3.0, department: "Computer Engineering", level: "400", semester: "Second", status: "optimized" },
+  { id: "c14", code: "CEC430", name: "Fullstack Web Development", lecturerId: "l3", credits: 3.0, department: "Computer Engineering", level: "400", semester: "Second", status: "optimized" },
+  { id: "c15", code: "CEC434", name: "Data Visualization", lecturerId: "l7", credits: 3.0, department: "Computer Engineering", level: "400", semester: "Second", status: "optimized" },
+  { id: "c16", code: "CEC436", name: "Wireless Applications", lecturerId: "l7", credits: 3.0, department: "Computer Engineering", level: "400", semester: "Second", status: "pending" },
+  { id: "c17", code: "CEC418", name: "Software Construction and Quality", lecturerId: "l2", credits: 3.0, department: "Computer Engineering", level: "400", semester: "Second", status: "optimized" },
 ];
 
 export const classrooms: Classroom[] = [
-  { id: "r1", name: "Hall A", capacity: 120, type: "Lecture Hall", building: "Engineering Hall B" },
-  { id: "r2", name: "Hall B", capacity: 80, type: "Lecture Hall", building: "Science Block 4" },
-  { id: "r3", name: "Lab 1", capacity: 40, type: "Lab", building: "Innovation Lab" },
-  { id: "r4", name: "Lab 2", capacity: 40, type: "Lab", building: "Science Block 4" },
-  { id: "r5", name: "Studio C", capacity: 30, type: "Studio", building: "Liberal Arts" },
-  { id: "r6", name: "Room 402", capacity: 60, type: "Lecture Hall", building: "Humanities" },
+  { id: "r1", name: "U-Block E", capacity: 120, type: "Lecture Hall", building: "U-Block" },
+  { id: "r2", name: "PEAGOB 1", capacity: 80, type: "Lecture Hall", building: "PEAGOB Complex" },
+  { id: "r3", name: "PEAGOB 2", capacity: 80, type: "Lecture Hall", building: "PEAGOB Complex" },
+  { id: "r4", name: "PEAGOB 3", capacity: 80, type: "Lecture Hall", building: "PEAGOB Complex" },
+  { id: "r5", name: "PEAGOB 4", capacity: 80, type: "Lecture Hall", building: "PEAGOB Complex" },
+  { id: "r6", name: "CB II 50F", capacity: 50, type: "Lecture Hall", building: "CB II" },
+  { id: "r7", name: "CT2", capacity: 60, type: "Lab", building: "Computing Tech Block" },
+  { id: "r8", name: "Open CT", capacity: 100, type: "Lab", building: "Computing Tech Block" },
+  { id: "r9", name: "CB1 50A", capacity: 50, type: "Lecture Hall", building: "CB1" },
+  { id: "r10", name: "CB1 50B", capacity: 50, type: "Lecture Hall", building: "CB1" },
+  { id: "r11", name: "CB1 50C", capacity: 50, type: "Lecture Hall", building: "CB1" },
 ];
 
 export const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -101,48 +119,48 @@ export const daysShort = ["MON", "TUE", "WED", "THU", "FRI"];
 export const timeSlots = ["08:00 - 10:00", "10:00 - 12:00", "12:00 - 14:00", "14:00 - 16:00", "16:00 - 18:00"];
 
 export const initialTimetable: TimetableSlot[] = [
-  { day: "Monday", time: "08:00 - 10:00", courseCode: "CS210", courseName: "Data Structures", lecturer: "Dr. Sarah Jenkins", room: "Hall A", density: "high" },
-  { day: "Monday", time: "10:30 - 12:30", courseCode: "ALG2", courseName: "Algorithms II", lecturer: "Dr. Sarah Jenkins", room: "Hall A", density: "high" },
-  { day: "Tuesday", time: "09:00 - 12:00", courseCode: "SQA", courseName: "Software QA", lecturer: "Prof. Michael Chen", room: "Hall B", density: "medium" },
-  { day: "Tuesday", time: "14:00 - 16:00", courseCode: "FREE", courseName: "Free Slot", lecturer: "—", room: "—", density: "low" },
-  { day: "Wednesday", time: "08:00 - 10:00", courseCode: "CLOUD", courseName: "Cloud Arch", lecturer: "Dr. Elena Rossi", room: "Lab 1", density: "medium" },
-  { day: "Wednesday", time: "11:00 - 13:00", courseCode: "ETHICS", courseName: "Ethics Lab", lecturer: "Dr. Elena Rossi", room: "Lab 1", density: "medium" },
-  { day: "Thursday", time: "10:00 - 13:00", courseCode: "RESERVED", courseName: "Reserved", lecturer: "—", room: "—", density: "low" },
-  { day: "Friday", time: "10:00 - 12:30", courseCode: "THESIS", courseName: "Thesis Seminar", lecturer: "Prof. Marie Curie", room: "Hall A", density: "medium" },
+  { day: "Monday", time: "08:00 - 10:00", courseCode: "CEC431", courseName: "Software Construction and Quality", lecturer: "Dr. Nyanga B", room: "U-Block E", density: "high" },
+  { day: "Monday", time: "10:00 - 12:00", courseCode: "CEC427", courseName: "Fundamentals of Big Data", lecturer: "Mr. Kometa Dennis", room: "PEAGOB 1", density: "high" },
+  { day: "Tuesday", time: "08:00 - 10:00", courseCode: "CEC433", courseName: "Mobile Apps with Embedded Systems", lecturer: "Dr. Mellingui Melono", room: "PEAGOB 2", density: "medium" },
+  { day: "Tuesday", time: "14:00 - 16:00", courseCode: "COT305", courseName: "Computing Theory", lecturer: "Mr. Nana", room: "CB1 50A", density: "medium" },
+  { day: "Wednesday", time: "08:00 - 10:00", courseCode: "CEC461", courseName: "Information Security", lecturer: "Dr. Sone Ekonde", room: "CB II 50F", density: "high" },
+  { day: "Wednesday", time: "12:00 - 14:00", courseCode: "CEC317", courseName: "CEC 317", lecturer: "Mr. Nkentenyim D", room: "CT2", density: "medium" },
+  { day: "Thursday", time: "10:00 - 12:00", courseCode: "CEC417", courseName: "CEC 417", lecturer: "Mr. Megoze", room: "Open CT", density: "medium" },
+  { day: "Friday", time: "10:00 - 12:00", courseCode: "CEC323", courseName: "CEC 323", lecturer: "Mr. Baloko Collins", room: "CB1 50B", density: "medium" },
 ];
 
 export const lecturerSchedule = [
   { day: "Monday, Oct 23", isToday: true, sessions: [
-    { time: "08:00 AM - 10:00 AM", code: "CE402", name: "Software Architecture", venue: "Engineering Hall B, Level 2", students: 65, status: "now" as const },
-    { time: "01:00 PM - 03:00 PM", code: "CS201", name: "Discrete Mathematics", venue: "Science Block 4, Room 102", students: 42, status: "upcoming" as const },
+    { time: "08:00 AM - 10:00 AM", code: "CEC431", name: "Software Construction and Quality", venue: "U-Block E", students: 65, status: "now" as const },
+    { time: "01:00 PM - 03:00 PM", code: "CEC315", name: "CEC 315", venue: "PEAGOB 1", students: 42, status: "upcoming" as const },
   ]},
   { day: "Tuesday, Oct 24", isToday: false, sessions: [
-    { time: "10:00 AM - 12:00 PM", code: "SE305", name: "Cloud Infrastructure Lab", venue: "Innovation Lab, Level 4", students: 25, status: "upcoming" as const },
+    { time: "10:00 AM - 12:00 PM", code: "CEC427", name: "Fundamentals of Big Data", venue: "PEAGOB 3", students: 25, status: "upcoming" as const },
   ]},
   { day: "Wednesday, Oct 25", isToday: false, sessions: [
-    { time: "09:00 AM - 11:00 AM", code: "CE402", name: "Software Architecture", venue: "Engineering Hall B, Level 2", students: 65, status: "upcoming" as const },
-    { time: "02:00 PM - 04:00 PM", code: "ML410", name: "Machine Learning Capstone", venue: "Innovation Lab, Level 4", students: 18, status: "upcoming" as const },
+    { time: "09:00 AM - 11:00 AM", code: "CEC418", name: "Software Construction and Quality", venue: "CB II 50F", students: 65, status: "upcoming" as const },
+    { time: "02:00 PM - 04:00 PM", code: "CEC430", name: "Fullstack Web Development", venue: "Open CT", students: 18, status: "upcoming" as const },
   ]},
 ];
 
 export const conflicts: Conflict[] = [
-  { id: "cf1", type: "lecturer", category: "LECTURER TIME CLASH", title: "Lecturer Time Clash", description: "Dr. A. Smith assigned to CE402 (Software Architecture) & CE405 (Cloud Computing) at 10:00 AM, Monday.", details: "CE402 (Software Architecture) and CE405 (Cloud Computing)", day: "Monday", time: "10:00 AM", severity: "critical", detectedAgo: "2m ago" },
-  { id: "cf2", type: "room", category: "INFRASTRUCTURE ALERT", title: "Venue Unavailability", description: "Room 101 scheduled for maintenance during CS301 session on Tuesday.", details: "CS301 session conflicts with maintenance", day: "Tuesday", time: "11:00 AM", severity: "medium", detectedAgo: "15m ago" },
-  { id: "cf3", type: "course", category: "COURSE OVERLAP", title: "Student Group Overlap", description: "Level 300 students assigned to MATH310 and EC305 simultaneously on Wednesday at 02:00 PM.", details: "MATH310 and EC305 share student cohort", day: "Wednesday", time: "02:00 PM", severity: "critical", detectedAgo: "32m ago" },
-  { id: "cf4", type: "lecturer", category: "WORKLOAD ALERT", title: "Faculty Overload", description: "Prof. Marie Curie scheduled for 7 consecutive hours Tuesday — exceeds policy limit.", details: "Workload threshold exceeded", day: "Tuesday", time: "All day", severity: "medium", detectedAgo: "1h ago" },
-  { id: "cf5", type: "room", category: "INFRASTRUCTURE ALERT", title: "Capacity Mismatch", description: "LIT110 (95 students) booked into Studio C (30 capacity) on Friday.", details: "Room undersized for cohort", day: "Friday", time: "10:00 AM", severity: "critical", detectedAgo: "5m ago" },
+  { id: "cf1", type: "lecturer", category: "LECTURER TIME CLASH", title: "Lecturer Time Clash", description: "Mr. Megoze assigned to CEC417 & CEC434 at 10:00 AM, Monday.", details: "CEC417 and CEC434 overlap", day: "Monday", time: "10:00 AM", severity: "critical", detectedAgo: "2m ago" },
+  { id: "cf2", type: "room", category: "INFRASTRUCTURE ALERT", title: "Venue Unavailability", description: "PEAGOB 2 scheduled for maintenance during CEC433 on Tuesday.", details: "CEC433 conflicts with maintenance", day: "Tuesday", time: "11:00 AM", severity: "medium", detectedAgo: "15m ago" },
+  { id: "cf3", type: "course", category: "COURSE OVERLAP", title: "Student Group Overlap", description: "Level 400 students assigned to CEC431 and CEC461 simultaneously on Wednesday at 02:00 PM.", details: "CEC431 and CEC461 share cohort", day: "Wednesday", time: "02:00 PM", severity: "critical", detectedAgo: "32m ago" },
+  { id: "cf4", type: "lecturer", category: "WORKLOAD ALERT", title: "Faculty Overload", description: "Mr. Megoze scheduled for 7 consecutive hours Tuesday — exceeds policy limit.", details: "Workload threshold exceeded", day: "Tuesday", time: "All day", severity: "medium", detectedAgo: "1h ago" },
+  { id: "cf5", type: "room", category: "INFRASTRUCTURE ALERT", title: "Capacity Mismatch", description: "CEC430 (95 students) booked into CB1 50C (50 capacity) on Friday.", details: "Room undersized for cohort", day: "Friday", time: "10:00 AM", severity: "critical", detectedAgo: "5m ago" },
 ];
 
 export const users: User[] = [
-  { id: "u1", username: "sjensen_admin", email: "s.jensen@scholarly.edu", role: "Admin", avatarSeed: "Sarah", status: "active" },
-  { id: "u2", username: "m_thorne", email: "m.thorne@scholarly.edu", role: "Lecturer", avatarSeed: "Marcus", status: "active" },
-  { id: "u3", username: "achen_admin", email: "a.chen@scholarly.edu", role: "Admin", avatarSeed: "Alex", status: "active" },
-  { id: "u4", username: "e_rossi", email: "e.rossi@scholarly.edu", role: "Lecturer", avatarSeed: "Elena", status: "inactive" },
+  { id: "u1", username: "nyanga_admin", email: "nyanga.b@ubuea.edu", role: "Admin", avatarSeed: "Nyanga", status: "active" },
+  { id: "u2", username: "kometa_d", email: "kometa.d@ubuea.edu", role: "Lecturer", avatarSeed: "Kometa", status: "active" },
+  { id: "u3", username: "mellingui_m", email: "mellingui.m@ubuea.edu", role: "Lecturer", avatarSeed: "Mellingui", status: "active" },
+  { id: "u4", username: "megoze", email: "megoze@ubuea.edu", role: "Lecturer", avatarSeed: "Megoze", status: "active" },
 ];
 
 export const recentActivity = [
-  { id: 1, action: "Generated Q3 timetable", user: "Admin", time: "2 min ago", icon: "Sparkles" },
+  { id: 1, action: "Generated Semester 1 timetable", user: "Admin", time: "2 min ago", icon: "Sparkles" },
   { id: 2, action: "Resolved lecturer conflict", user: "Admin", time: "15 min ago", icon: "CheckCircle2" },
-  { id: 3, action: "Added course CSC410", user: "Admin", time: "1 hour ago", icon: "BookPlus" },
-  { id: 4, action: "Updated lecturer availability", user: "Dr. Eze", time: "3 hours ago", icon: "UserCheck" },
+  { id: 3, action: "Added course CEC430", user: "Admin", time: "1 hour ago", icon: "BookPlus" },
+  { id: 4, action: "Updated lecturer availability", user: "Dr. Mellingui", time: "3 hours ago", icon: "UserCheck" },
 ];

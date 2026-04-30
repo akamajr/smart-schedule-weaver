@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const adminLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -49,13 +50,11 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
     <aside className="flex h-screen w-64 flex-col border-r border-border bg-sidebar">
       {/* Brand */}
       <div className="flex items-center gap-3 px-6 pt-7 pb-6">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-deep shadow-glow">
-          <GraduationCap className="h-5 w-5 text-primary-foreground" />
-        </div>
+        <BrandLogo size={44} />
         <div>
-          <p className="font-display text-base font-bold leading-none">Scholarly</p>
+          <p className="font-display text-base font-bold leading-none">SmartTimetable</p>
           <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {isAdmin ? "AI Curator" : "Faculty Portal"}
+            {isAdmin ? "AI Schedule Generator" : "Faculty Portal"}
           </p>
         </div>
       </div>

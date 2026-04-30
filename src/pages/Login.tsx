@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -41,12 +42,10 @@ const Login = () => {
       <div className="flex min-h-screen flex-col px-6 py-10 sm:px-12 lg:px-16">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl gradient-deep shadow-glow">
-            <GraduationCap className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <BrandLogo size={48} />
           <div>
-            <p className="font-display text-lg font-bold leading-none">Smart Timetable</p>
-            <p className="mt-1 text-xs text-muted-foreground">The Scholarly Curator</p>
+            <p className="font-display text-lg font-bold leading-none">SmartTimetable</p>
+            <p className="mt-1 text-xs text-muted-foreground">AI Schedule Generator</p>
           </div>
         </div>
 

@@ -24,7 +24,7 @@ const Courses = () => {
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
-  const [form, setForm] = useState({ code: "", name: "", lecturerId: "", credits: 3, department: "Computer Science", level: "300", status: "pending" as Course["status"] });
+  const [form, setForm] = useState({ code: "", name: "", lecturerId: "", credits: 3, department: "Computer Engineering", level: "300", semester: "First" as Course["semester"], status: "pending" as Course["status"] });
 
   const departments = useMemo(
     () => Array.from(new Set(items.map((c) => c.department))),
@@ -41,7 +41,7 @@ const Courses = () => {
   const view = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const reset = () => {
-    setForm({ code: "", name: "", lecturerId: "", credits: 3, department: "Computer Science", level: "300", status: "pending" });
+    setForm({ code: "", name: "", lecturerId: "", credits: 3, department: "Computer Engineering", level: "300", semester: "First", status: "pending" });
     setEditing(null);
   };
 
@@ -65,7 +65,7 @@ const Courses = () => {
 
   const startEdit = (c: Course) => {
     setEditing(c);
-    setForm({ code: c.code, name: c.name, lecturerId: c.lecturerId, credits: c.credits, department: c.department, level: c.level, status: c.status });
+    setForm({ code: c.code, name: c.name, lecturerId: c.lecturerId, credits: c.credits, department: c.department, level: c.level, semester: c.semester, status: c.status });
     setOpen(true);
   };
 

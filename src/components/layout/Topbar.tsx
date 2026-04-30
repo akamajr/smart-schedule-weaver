@@ -15,8 +15,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const Topbar = ({ onMenu }: { onMenu?: () => void }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md md:px-8">

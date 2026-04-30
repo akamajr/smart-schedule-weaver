@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import {
   LayoutDashboard,
   BookOpen,
@@ -40,6 +42,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const location = useLocation();
   const isAdmin = user?.role === "Admin";
   const links = isAdmin ? adminLinks : lecturerLinks;
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -79,6 +82,41 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
             </NavLink>
           );
         })}
+
+        {!isAdmin && (
+          <div className="pt-1">
+            <button
+              onClick={() => setSettingsOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
+                settingsOpen
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+              )}
+              aria-expanded={settingsOpen}
+            >
+              <Settings className={cn("h-4 w-4", settingsOpen && "text-primary")} />
+              Settings
+              <ChevronDown
+                className={cn(
+                  "ml-auto h-4 w-4 transition-transform",
+                  settingsOpen && "rotate-180"
+                )}
+              />
+            </button>
+            {settingsOpen && (
+              <div className="mt-1 ml-4 border-l border-border pl-3">
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-smooth hover:bg-destructive/10"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       <div className="space-y-3 px-4 pb-3 pt-4">

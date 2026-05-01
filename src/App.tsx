@@ -18,6 +18,7 @@ import AIScheduler from "./pages/AIScheduler";
 import Conflicts from "./pages/Conflicts";
 import Settings from "./pages/Settings";
 import MyTimetable from "./pages/MyTimetable";
+import StudentCourses from "./pages/StudentCourses";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/conflicts" element={<ProtectedRoute roles={["Admin"]}><Conflicts /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute roles={["Admin"]}><Settings /></ProtectedRoute>} />
               <Route path="/my-timetable" element={<ProtectedRoute roles={["Lecturer"]}><MyTimetable /></ProtectedRoute>} />
+              <Route path="/courses-catalog" element={<ProtectedRoute roles={["Student"]}><StudentCourses /></ProtectedRoute>} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

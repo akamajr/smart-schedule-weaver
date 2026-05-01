@@ -1,28 +1,11 @@
-export type Role = "Admin" | "Lecturer";
+// Role types — real role data lives in the user_roles table on the backend.
+export type Role = "Admin" | "Lecturer" | "Student";
 
 export type AuthUser = {
-  username: string;
+  id: string;
   email: string;
+  username: string;
   role: Role;
-};
-
-const KEY = "stt_auth_user";
-
-export const authService = {
-  login(email: string, _password: string, role: Role): AuthUser {
-    const user: AuthUser = {
-      username: email.split("@")[0] || "user",
-      email,
-      role,
-    };
-    localStorage.setItem(KEY, JSON.stringify(user));
-    return user;
-  },
-  logout() {
-    localStorage.removeItem(KEY);
-  },
-  current(): AuthUser | null {
-    const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : null;
-  },
+  displayName?: string | null;
+  avatarUrl?: string | null;
 };

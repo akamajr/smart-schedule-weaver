@@ -19,8 +19,8 @@ export const Topbar = ({ onMenu }: { onMenu?: () => void }) => {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

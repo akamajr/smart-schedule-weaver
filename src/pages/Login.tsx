@@ -60,10 +60,11 @@ const Login = () => {
     const parsed = signUpSchema.safeParse({ email, password, displayName, role: signupRole });
     if (!parsed.success) return setError(parsed.error.issues[0].message);
     setLoading(true);
-    const { error: err } = await signUp(parsed.data);
+    const data = parsed.data as { email: string; password: string; displayName: string; role: SignupRole };
+    const { error: err } = await signUp(data);
     setLoading(false);
     if (err) return setError(err);
-    toast.success(`Account created. Welcome, ${parsed.data.displayName}!`);
+    toast.success(`Account created. Welcome, ${data.displayName}!`);
     navigate("/");
   };
 

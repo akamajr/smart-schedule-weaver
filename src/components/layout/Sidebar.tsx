@@ -36,16 +36,21 @@ const lecturerLinks = [
   { to: "/my-timetable", label: "My Schedule", icon: CalendarCheck },
 ];
 
+const studentLinks = [
+  { to: "/courses-catalog", label: "Course Catalog", icon: BookOpen },
+];
+
 export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = user?.role === "Admin";
-  const links = isAdmin ? adminLinks : lecturerLinks;
+  const isStudent = user?.role === "Student";
+  const links = isAdmin ? adminLinks : isStudent ? studentLinks : lecturerLinks;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

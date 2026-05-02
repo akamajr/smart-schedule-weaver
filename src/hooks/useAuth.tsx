@@ -26,6 +26,8 @@ type Ctx = {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (input: SignUpInput) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -128,6 +130,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: null };
   };
 
+  const resetPassword: Ctx["resetPassword"] = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error: error?.message ?? null };
+  };
+
+  const updatePassword: Ctx["updatePassword"] = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error?.message ?? null };
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -140,7 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value = useMemo<Ctx>(
-    () => ({ user, session, loading, signIn, signUp, signInWithGoogle, logout, refresh }),
+    () => ({ user, session, loading, signIn, signUp, signInWithGoogle, resetPassword, updatePassword, logout, refresh }),
     [user, session, loading]
   );
 

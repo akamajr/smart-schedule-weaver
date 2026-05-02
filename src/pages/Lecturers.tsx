@@ -108,95 +108,79 @@ const Lecturers = () => {
         <StatCard title="Pending Constraints" value={5} icon={ClipboardList} accent="info" trend="Workflow" />
       </div>
 
-      {/* Faculty Directory */}
-      <div className="rounded-3xl border border-border bg-card shadow-card">
-        <div className="flex items-center justify-between border-b border-border px-6 py-5">
-          <h3 className="font-display text-lg font-semibold">Faculty Directory</h3>
-          <div className="flex gap-1">
-            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Filter className="h-4 w-4" /></Button>
-            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Download className="h-4 w-4" /></Button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                <th className="px-6 py-4 text-left font-semibold">Lecturer</th>
-                <th className="px-6 py-4 text-left font-semibold">Dept</th>
-                <th className="px-6 py-4 text-left font-semibold">Available now?</th>
-                <th className="px-6 py-4 text-left font-semibold">Constraints</th>
-                <th className="px-6 py-4 text-left font-semibold">Preferred rooms</th>
-                <th className="px-6 py-4 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((l) => (
-                <tr key={l.id} className={cn("transition-smooth", l.hasOverlap ? "bg-warning-soft/30" : "hover:bg-primary-soft/20")}>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <InitialsAvatar seed={l.name} size={42} />
-                      <div>
-                        <p className="font-semibold leading-tight">{l.name}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{l.title}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-primary">
-                      {l.department}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={l.status} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      {l.constraints.map((c, i) => (
-                        <span key={i} className="block text-xs">
-                          <span className="rounded-full bg-secondary px-2 py-0.5 text-muted-foreground">{c}</span>
-                        </span>
-                      ))}
-                      {l.hasOverlap && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
-                          <AlertCircle className="h-3 w-3" /> Overlap Detected
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-soft text-primary">
-                      <DoorOpen className="h-4 w-4" />
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-1">
-                      {l.hasOverlap && (
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/15 text-warning">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                        </span>
-                      )}
-                      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-primary hover:bg-primary-soft" onClick={() => toast.info("Edit lecturer")}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
-          <p className="text-xs text-muted-foreground">Showing {filtered.length} of {items.length} lecturers</p>
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" className="h-8 rounded-lg text-muted-foreground">Prev</Button>
-            <button className="h-8 min-w-[32px] rounded-lg bg-primary px-2 text-sm font-semibold text-primary-foreground">1</button>
-            <button className="h-8 min-w-[32px] rounded-lg px-2 text-sm font-semibold text-muted-foreground hover:bg-primary-soft">2</button>
-            <Button size="sm" variant="ghost" className="h-8 rounded-lg text-muted-foreground">Next</Button>
-          </div>
+      {/* Faculty masonry */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-lg font-semibold">Faculty Directory</h3>
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Filter className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Download className="h-4 w-4" /></Button>
         </div>
       </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
+          No lecturers match your search.
+        </div>
+      ) : (
+        <div className="columns-1 gap-5 sm:columns-2 lg:columns-3 xl:columns-4 [&>*]:mb-5">
+          {filtered.map((l, i) => {
+            const tall = i % 5 === 0 || l.hasOverlap;
+            return (
+              <article
+                key={l.id}
+                className={cn(
+                  "group break-inside-avoid rounded-3xl border p-5 shadow-card transition-smooth hover:-translate-y-0.5 hover:shadow-elegant",
+                  l.hasOverlap ? "border-warning/40 bg-warning-soft/40" : "border-border bg-card"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <InitialsAvatar seed={l.name} size={48} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-base font-bold leading-tight">{l.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{l.title}</p>
+                  </div>
+                  <StatusBadge status={l.status} />
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                    {l.department}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
+                    <DoorOpen className="h-3 w-3" /> {l.preferredRoom}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {l.constraints.map((c, idx) => (
+                    <span key={idx} className="rounded-full bg-secondary/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+
+                {l.courses.length > 0 && (
+                  <p className="mt-3 text-[11px] text-muted-foreground">
+                    Teaches: <span className="font-medium text-foreground">{l.courses.join(", ")}</span>
+                  </p>
+                )}
+
+                {tall && l.hasOverlap && (
+                  <p className="mt-3 inline-flex items-center gap-1 rounded-xl bg-destructive/10 px-3 py-1.5 text-[11px] font-semibold text-destructive">
+                    <AlertCircle className="h-3 w-3" /> Overlap detected — review schedule
+                  </p>
+                )}
+
+                <div className="mt-4 flex items-center justify-end opacity-60 transition-smooth group-hover:opacity-100">
+                  <Button size="sm" variant="ghost" className="h-8 rounded-lg text-primary hover:bg-primary-soft" onClick={() => toast.info("Edit lecturer")}>
+                    <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       {/* AI recommendation + Quick actions */}
       <div className="grid gap-4 lg:grid-cols-3">

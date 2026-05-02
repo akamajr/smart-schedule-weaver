@@ -303,6 +303,21 @@ const Generator = () => {
             </div>
           </div>
 
+          <div className="mt-6">
+            <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Session Type</Label>
+            <Select value={sessionType} onValueChange={(v) => setSessionType(v as SessionType)}>
+              <SelectTrigger className="mt-2 h-12 rounded-2xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SESSION_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Currently generating: <span className="font-semibold text-foreground">{sessionType}</span>
+            </p>
+          </div>
+
           {/* Resource snapshot */}
           <div className="mt-6 rounded-2xl border border-border bg-primary-soft/30 p-4">
             <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Resource Snapshot</p>

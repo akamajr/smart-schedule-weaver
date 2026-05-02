@@ -169,92 +169,89 @@ const Courses = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-3xl border border-border bg-card shadow-card">
-        {view.length === 0 ? <EmptyState /> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-6 py-4 text-left font-semibold">Course Code</th>
-                  <th className="px-6 py-4 text-left font-semibold">Course Name</th>
-                  <th className="px-6 py-4 text-left font-semibold">Department</th>
-                  <th className="px-6 py-4 text-left font-semibold">Credits</th>
-                  <th className="px-6 py-4 text-left font-semibold">Lecturer</th>
-                  <th className="px-6 py-4 text-left font-semibold">Status</th>
-                  <th className="px-6 py-4 text-right font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {view.map((c) => {
-                  const lec = lecturers.find((l) => l.id === c.lecturerId);
-                  return (
-                    <tr key={c.id} className="transition-smooth hover:bg-primary-soft/30">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-primary" />
-                          <span className="font-mono font-bold">{c.code}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-medium">{c.name}</td>
-                      <td className="px-6 py-4 text-muted-foreground">{c.department}</td>
-                      <td className="px-6 py-4 font-medium">{c.credits.toFixed(1)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <InitialsAvatar seed={lec?.name || "?"} size={28} />
-                          <span className="text-muted-foreground">{lec?.name ?? "—"}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusPill status={c.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end gap-1">
-                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-primary hover:bg-primary-soft" onClick={() => startEdit(c)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(c.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* Masonry grid */}
+      {view.length === 0 ? (
+        <div className="rounded-3xl border border-border bg-card shadow-card">
+          <EmptyState />
+        </div>
+      ) : (
+        <div className="columns-1 gap-5 sm:columns-2 lg:columns-3 xl:columns-4 [&>*]:mb-5">
+          {view.map((c, i) => {
+            const lec = lecturers.find((l) => l.id === c.lecturerId);
+            const tall = i % 4 === 1;
+            return (
+              <article
+                key={c.id}
+                className="group break-inside-avoid rounded-3xl border border-border bg-card p-5 shadow-card transition-smooth hover:-translate-y-0.5 hover:shadow-elegant"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <span className="font-mono text-sm font-bold tracking-wide">{c.code}</span>
+                  </div>
+                  <StatusPill status={c.status} />
+                </div>
+                <h3 className="mt-3 font-display text-lg font-bold leading-tight">{c.name}</h3>
+                <p className="mt-2 text-xs text-muted-foreground">{c.department} · Level {c.level} · {c.semester} Sem</p>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
-          <p className="text-xs text-muted-foreground">
-            Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} courses
-          </p>
-          <div className="flex items-center gap-1">
-            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            {Array.from({ length: Math.min(pages, 4) }).map((_, i) => {
-              const n = i + 1;
-              const active = n === page;
-              return (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={cn(
-                    "h-8 min-w-[32px] rounded-lg px-2 text-sm font-semibold transition-smooth",
-                    active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-primary-soft"
-                  )}
-                >
-                  {n}
-                </button>
-              );
-            })}
-            {pages > 4 && <span className="px-1 text-muted-foreground">…</span>}
-            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" disabled={page === pages} onClick={() => setPage((p) => p + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <InitialsAvatar seed={lec?.name || "?"} size={32} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{lec?.name ?? "Unassigned"}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.credits.toFixed(1)} credits</p>
+                  </div>
+                </div>
+
+                {tall && (
+                  <p className="mt-4 rounded-xl bg-primary-soft/40 p-3 text-xs text-muted-foreground">
+                    Curriculum module is locked into the schedule generator. Edit to refine constraints
+                    or reassign the lecturer.
+                  </p>
+                )}
+
+                <div className="mt-4 flex items-center justify-end gap-1 opacity-60 transition-smooth group-hover:opacity-100">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-primary hover:bg-primary-soft" onClick={() => startEdit(c)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(c.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-3">
+        <p className="text-xs text-muted-foreground">
+          Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} courses
+        </p>
+        <div className="flex items-center gap-1">
+          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {Array.from({ length: Math.min(pages, 4) }).map((_, i) => {
+            const n = i + 1;
+            const active = n === page;
+            return (
+              <button
+                key={n}
+                onClick={() => setPage(n)}
+                className={cn(
+                  "h-8 min-w-[32px] rounded-lg px-2 text-sm font-semibold transition-smooth",
+                  active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-primary-soft"
+                )}
+              >
+                {n}
+              </button>
+            );
+          })}
+          {pages > 4 && <span className="px-1 text-muted-foreground">…</span>}
+          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" disabled={page === pages} onClick={() => setPage((p) => p + 1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 

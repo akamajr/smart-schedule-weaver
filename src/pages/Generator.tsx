@@ -14,6 +14,25 @@ import { InitialsAvatar } from "@/components/InitialsAvatar";
 
 type Stream = "Software Engineering" | "Network Engineering";
 
+type SessionType =
+  | "Masters"
+  | "First Sem CA"
+  | "First Sem Exams"
+  | "First Sem Resit"
+  | "Second Sem CA"
+  | "Second Sem Exams"
+  | "Second Sem Resit";
+
+const SESSION_TYPES: SessionType[] = [
+  "Masters",
+  "First Sem CA",
+  "First Sem Exams",
+  "First Sem Resit",
+  "Second Sem CA",
+  "Second Sem Exams",
+  "Second Sem Resit",
+];
+
 type Cell = {
   time: string;
   title: string;
@@ -59,6 +78,7 @@ const Generator = () => {
   const [stream, setStream] = useState<Stream>("Software Engineering");
   const [level, setLevel] = useState("300");
   const [semester, setSemester] = useState("First");
+  const [sessionType, setSessionType] = useState<SessionType>("First Sem CA");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(65);
   const [generated, setGenerated] = useState(true);

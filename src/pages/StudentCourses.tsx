@@ -1,92 +1,105 @@
-import { useMemo, useState } from "react";
-import { courses, lecturers } from "@/lib/mockData";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { BookOpen, Search, User } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const TIME_SLOTS = [
+  "7am to 9am",
+  "9am to 11am",
+  "11am to 1pm",
+  "1pm to 3pm",
+  "3pm to 5pm",
+  "5pm to 7pm",
+];
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+type Session = {
+  title: string;
+  lecturer?: string;
+  venue?: string;
+};
+
+const SCHEDULE: Record<string, Record<string, Session>> = {
+  "7am to 9am": {
+    Tuesday: { title: "Data Analysis", lecturer: "Mr KOMETA", venue: "u block" },
+    Thursday: { title: "Information security", lecturer: "Dr Sone", venue: "CT1" },
+  },
+  "9am to 11am": {
+    Wednesday: { title: "Mobile app", lecturer: "Mr Megoze", venue: "u block E" },
+  },
+  "11am to 1pm": {
+    Friday: { title: "Data Analysis", lecturer: "Mr KOMETA" },
+  },
+  "1pm to 3pm": {
+    Tuesday: { title: "Information security", lecturer: "Dr Sone", venue: "CT1" },
+    Thursday: { title: "SPQ", lecturer: "MR Nyanga", venue: "G block 100" },
+  },
+  "3pm to 5pm": {
+    Saturday: { title: "Mobile app for embeded system", lecturer: "DR Melingui", venue: "ODC" },
+  },
+  "5pm to 7pm": {},
+};
 
 const StudentCourses = () => {
-  const [query, setQuery] = useState("");
-  const [semester, setSemester] = useState<"All" | "First" | "Second">("All");
-
-  const lecturerById = useMemo(
-    () => Object.fromEntries(lecturers.map((l) => [l.id, l])),
-    []
-  );
-
-  const filtered = courses.filter((c) => {
-    const matchesQuery =
-      !query ||
-      c.code.toLowerCase().includes(query.toLowerCase()) ||
-      c.name.toLowerCase().includes(query.toLowerCase());
-    const matchesSem = semester === "All" || c.semester === semester;
-    return matchesQuery && matchesSem;
-  });
-
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Course Catalog</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Browse all courses offered this academic year.
-        </p>
+      <div className="rounded-3xl bg-primary p-8 text-center text-primary-foreground shadow-elegant">
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+          Student Weekly Timetable
+        </h1>
+        <p className="mt-3 text-sm opacity-90 md:text-base">Smart Timetable System Generator</p>
       </div>
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by code or name…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-11 rounded-xl pl-9"
-          />
+      <div className="overflow-x-auto rounded-3xl border border-border bg-card p-4 shadow-card">
+        <div className="min-w-[900px]">
+          {/* Header row */}
+          <div className="grid grid-cols-7 gap-2">
+            <div className="rounded-xl bg-primary px-4 py-3 text-center text-sm font-bold text-primary-foreground">
+              Time
+            </div>
+            {DAYS.map((d) => (
+              <div
+                key={d}
+                className="rounded-xl bg-primary px-4 py-3 text-center text-sm font-bold text-primary-foreground"
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Body rows */}
+          {TIME_SLOTS.map((slot) => (
+            <div key={slot} className="mt-2 grid grid-cols-7 gap-2">
+              <div className="flex items-center justify-center rounded-xl bg-primary-soft px-3 py-6 text-center text-sm font-bold text-foreground">
+                {slot}
+              </div>
+              {DAYS.map((day) => {
+                const session = SCHEDULE[slot]?.[day];
+                return (
+                  <div
+                    key={day}
+                    className={cn(
+                      "min-h-[96px] rounded-xl border border-border bg-card p-2",
+                      session && "shadow-sm"
+                    )}
+                  >
+                    {session && (
+                      <div className="h-full rounded-lg border-l-4 border-primary bg-secondary/60 p-2 text-xs">
+                        <p className="font-bold text-foreground">{session.title}</p>
+                        {session.lecturer && (
+                          <p className="mt-1 text-muted-foreground">
+                            Lecturer: {session.lecturer}
+                          </p>
+                        )}
+                        {session.venue && (
+                          <p className="text-muted-foreground">venue: {session.venue}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
-        <Tabs value={semester} onValueChange={(v) => setSemester(v as typeof semester)}>
-          <TabsList className="rounded-xl">
-            <TabsTrigger value="All">All</TabsTrigger>
-            <TabsTrigger value="First">First Semester</TabsTrigger>
-            <TabsTrigger value="Second">Second Semester</TabsTrigger>
-          </TabsList>
-          <TabsContent value={semester} />
-        </Tabs>
-      </div>
-
-      {/* Pinterest-style masonry */}
-      <div className="columns-1 gap-5 sm:columns-2 lg:columns-3 xl:columns-4 [&>*]:mb-5">
-        {filtered.map((c) => {
-          const lecturer = lecturerById[c.lecturerId];
-          return (
-            <article
-              key={c.id}
-              className="break-inside-avoid rounded-3xl border border-border bg-card p-5 shadow-card transition-smooth hover:-translate-y-0.5 hover:shadow-elegant"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                  <BookOpen className="h-5 w-5" />
-                </div>
-                <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {c.semester} Sem
-                </span>
-              </div>
-              <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {c.code}
-              </p>
-              <p className="mt-1 font-display text-lg font-bold leading-snug">{c.name}</p>
-              {lecturer && (
-                <p className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <User className="h-3.5 w-3.5" /> {lecturer.title} {lecturer.name}
-                </p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-                <span className="rounded-full bg-secondary px-2 py-0.5">{c.credits} credits</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5">{c.level}</span>
-              </div>
-            </article>
-          );
-        })}
-        {filtered.length === 0 && (
-          <p className="text-sm text-muted-foreground">No courses match your search.</p>
-        )}
       </div>
     </div>
   );

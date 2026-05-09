@@ -38,14 +38,11 @@ const fetchUserContext = async (session: Session): Promise<AuthUser> => {
   const userId = session.user.id;
   const email = session.user.email ?? "";
 
-  const [{ data: roleRow }, { data: profile }] = await Promise.all([
+  const [{ data: roleRows }, { data: profile }] = await Promise.all([
     supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .eq("user_id", userId),
     supabase
       .from("profiles")
       .select("display_name, avatar_url")
@@ -53,7 +50,9 @@ const fetchUserContext = async (session: Session): Promise<AuthUser> => {
       .maybeSingle(),
   ]);
 
-  const role = (roleRow?.role as Role | undefined) ?? "Student";
+  const roles = (roleRows ?? []).map((r) => r.role as Role);
+  const priority: Role[] = ["Admin", "Lecturer", "Student"];
+  const role = priority.find((r) => roles.includes(r)) ?? "Student";
 
   return {
     id: userId,

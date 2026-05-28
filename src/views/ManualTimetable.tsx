@@ -181,6 +181,9 @@ const ManualTimetable = () => {
   const [focusedTimeColumnId, setFocusedTimeColumnId] = useState<string | null>(null);
   const [draggedTimeColumnId, setDraggedTimeColumnId] = useState<string | null>(null);
   const [dragOverTimeColumnId, setDragOverTimeColumnId] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
   const gridSectionRef = useRef<HTMLElement | null>(null);
   const [meta, setMeta] = useState({
     title: "Manual Teaching Timetable",
@@ -352,8 +355,47 @@ const ManualTimetable = () => {
     const saved = await saveTimeColumnsForTimetable(activeId, columns);
     if (saved) {
       toast.success(savedMessage);
+      setHasUnsavedChanges(false);
     }
     return saved;
+  };
+
+  const saveAllTimeColumns = async () => {
+    if (!activeId) {
+      toast.error("Please save the timetable first before saving time columns");
+      return;
+    }
+
+    setIsAutoSaving(true);
+    const columnsToSave = customTimeColumns.map((column) => {
+      const draft = timeColumnDrafts[column.id];
+      if (draft) {
+        return { ...column, start: draft.start, end: draft.end };
+      }
+      return column;
+    });
+
+    const valid = columnsToSave.every((col) => {
+      const draft = timeColumnDrafts[col.id] ?? { start: col.start, end: col.end };
+      return draft.start && draft.end && draft.start < draft.end;
+    });
+
+    if (!valid) {
+      toast.error("Please fix invalid time ranges before saving");
+      setIsAutoSaving(false);
+      return;
+    }
+
+    setSaving(true);
+    const saved = await saveTimeColumnsForTimetable(activeId, columnsToSave);
+    setSaving(false);
+    setIsAutoSaving(false);
+
+    if (saved) {
+      setTimeColumnDrafts({});
+      setHasUnsavedChanges(false);
+      toast.success("All time columns saved successfully");
+    }
   };
 
   const createTimeColumnNear = (columns: TimeColumn[], insertIndex: number) => {
@@ -420,10 +462,14 @@ const ManualTimetable = () => {
     if (nextColumns.every((column, index) => column.id === customTimeColumns[index]?.id)) return;
 
     setFocusedTimeColumnId(columnId);
-    await persistTimeColumns(nextColumns, "Time column order saved to Supabase");
-    if (!activeId) {
+    setHasUnsavedChanges(true);
+    if (activeId) {
+      await persistTimeColumns(nextColumns, "Time column order saved to Supabase");
+    } else {
+      setCustomTimeColumns(nextColumns);
       toast.success("Time column order updated. Save the timetable to store it.");
     }
+    triggerAutoSave();
   };
 
   const handleTimeColumnDrop = async (targetColumnId: string) => {
@@ -442,6 +488,31 @@ const ManualTimetable = () => {
     setDragOverTimeColumnId(null);
   };
 
+  const handleDragStart = (event: React.DragEvent, columnId: string) => {
+    setDraggedTimeColumnId(columnId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", columnId);
+    event.dataTransfer.setDragImage(event.currentTarget as HTMLElement, 20, 20);
+  };
+
+  const handleDragOver = (event: React.DragEvent, columnId: string) => {
+    if (!draggedTimeColumnId || draggedTimeColumnId === columnId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverTimeColumnId(columnId);
+  };
+
+  const handleDragLeave = (columnId: string) => {
+    if (dragOverTimeColumnId === columnId) {
+      setDragOverTimeColumnId(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTimeColumnId(null);
+    setDragOverTimeColumnId(null);
+  };
+
   const updateTimeColumnDraft = (column: TimeColumn, field: "start" | "end", value: string) => {
     setTimeColumnDrafts((drafts) => ({
       ...drafts,
@@ -451,6 +522,7 @@ const ManualTimetable = () => {
         [field]: value,
       },
     }));
+    setHasUnsavedChanges(true);
   };
 
   const saveTimeColumn = async (column: TimeColumn) => {
@@ -476,20 +548,8 @@ const ManualTimetable = () => {
       delete next[column.id];
       return next;
     });
-    if (activeId) {
-      const saved = await saveTimeColumnsForTimetable(activeId, nextColumns);
-      if (!saved) return;
-      const { error } = await supabase
-        .from("manual_timetable_slots")
-        .update({ start_time: draft.start, end_time: draft.end })
-        .eq("timetable_id", activeId)
-        .eq("start_time", column.start)
-        .eq("end_time", column.end);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-    }
+    setHasUnsavedChanges(true);
+    triggerAutoSave();
     toast.success(activeId ? "Time column saved to Supabase" : "Time column saved. Save the timetable to store it.");
   };
 
@@ -511,11 +571,8 @@ const ManualTimetable = () => {
       delete next[column.id];
       return next;
     });
-
-    if (activeId) {
-      const saved = await saveTimeColumnsForTimetable(activeId, nextColumns);
-      if (!saved) return;
-    }
+    setHasUnsavedChanges(true);
+    triggerAutoSave();
     toast.success(activeId ? "Time column removed from Supabase" : "Time column removed");
   };
 
@@ -825,7 +882,29 @@ const ManualTimetable = () => {
       toast.success("Slot added");
     }
     setSlotOpen(false);
+    triggerAutoSave();
   };
+
+  const triggerAutoSave = () => {
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    const timeout = setTimeout(() => {
+      saveAllTimeColumns();
+    }, 2000);
+    setAutoSaveTimeout(timeout);
+  };
+
+  useEffect(() => {
+    if (hasUnsavedChanges && activeId) {
+      triggerAutoSave();
+    }
+    return () => {
+      if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+      }
+    };
+  }, [hasUnsavedChanges, activeId]);
 
   const cloneSlot = (slot: Slot) => {
     setSlots((items) => [
@@ -916,6 +995,20 @@ const ManualTimetable = () => {
           </Button>
           <Button variant="outline" className="rounded-xl" onClick={() => window.print()}>
             <Printer className="h-4 w-4" /> Print
+          </Button>
+          <Button 
+            variant={hasUnsavedChanges ? "default" : "outline"} 
+            className="rounded-xl relative overflow-hidden" 
+            onClick={saveAllTimeColumns} 
+            disabled={saving || !activeId || isAutoSaving}
+          >
+            {isAutoSaving && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/20 to-transparent animate-shimmer" />
+            )}
+            {(saving || isAutoSaving) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            Save All Time Columns
+            {hasUnsavedChanges && <Badge variant="secondary" className="ml-2 h-5 text-xs">Unsaved</Badge>}
+            {isAutoSaving && <span className="ml-2 text-xs opacity-70">(Auto-saving...)</span>}
           </Button>
           <Button className="rounded-xl" onClick={() => saveTimetable("draft")} disabled={saving || !schemaReady}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1153,43 +1246,47 @@ const ManualTimetable = () => {
                       draggable={isCustomColumn}
                       onDragStart={(event) => {
                         if (!isCustomColumn) return;
-                        setDraggedTimeColumnId(time.id);
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", time.id);
+                        handleDragStart(event, time.id);
                       }}
                       onDragOver={(event) => {
-                        if (!isCustomColumn || !draggedTimeColumnId || draggedTimeColumnId === time.id) return;
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = "move";
-                        setDragOverTimeColumnId(time.id);
+                        handleDragOver(event, time.id);
                       }}
                       onDragLeave={() => {
-                        if (dragOverTimeColumnId === time.id) {
-                          setDragOverTimeColumnId(null);
-                        }
+                        handleDragLeave(time.id);
                       }}
                       onDrop={(event) => {
                         event.preventDefault();
                         handleTimeColumnDrop(time.id);
                       }}
                       onDragEnd={() => {
-                        setDraggedTimeColumnId(null);
-                        setDragOverTimeColumnId(null);
+                        handleDragEnd();
                       }}
                       onClick={() => setFocusedTimeColumnId(time.id)}
                       onFocus={() => setFocusedTimeColumnId(time.id)}
                       className={cn(
-                        "sticky top-0 z-10 border-b border-r border-border bg-card p-2 last:border-r-0",
-                        isCustomColumn && "cursor-grab active:cursor-grabbing",
-                        draggedTimeColumnId === time.id && "opacity-60",
-                        dragOverTimeColumnId === time.id && "ring-2 ring-primary ring-inset",
+                        "sticky top-0 z-10 border-b border-r border-border bg-card p-2 last:border-r-0 transition-all duration-500 ease-in-out transform",
+                        isCustomColumn && "cursor-grab active:cursor-grabbing hover:shadow-lg",
+                        draggedTimeColumnId === time.id 
+                          ? "opacity-40 scale-95 ring-4 ring-primary ring-offset-2 bg-primary/20 shadow-xl animate-pulse" 
+                          : dragOverTimeColumnId === time.id 
+                            ? "ring-4 ring-primary ring-offset-2 scale-105 bg-primary/10 shadow-xl translate-x-2" 
+                            : draggedTimeColumnId && draggedTimeColumnId !== time.id 
+                              ? "transition-transform duration-500 ease-in-out" 
+                              : "",
+                        focusedTimeColumnId === time.id && !draggedTimeColumnId && "ring-2 ring-primary/50 ring-offset-1",
                       )}
+                      style={{
+                        transitionProperty: 'transform, opacity, box-shadow, background-color',
+                      }}
                     >
                       <div className="flex flex-wrap items-center justify-center gap-1.5">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 rounded-lg text-muted-foreground"
+                          className={cn(
+                            "h-8 w-8 rounded-lg text-muted-foreground",
+                            draggedTimeColumnId === time.id && "bg-primary text-primary-foreground animate-pulse",
+                          )}
                           disabled={!isCustomColumn}
                           title={isCustomColumn ? "Drag to reorder time column" : "Save this slot time before reordering"}
                           aria-label={isCustomColumn ? `Drag ${timeLabel(time)} time column` : `Cannot drag ${timeLabel(time)} time column`}
@@ -1215,11 +1312,12 @@ const ManualTimetable = () => {
                           variant={isChanged ? "default" : "ghost"}
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          onClick={() => saveTimeColumn(time)}
-                          title="Save time column"
-                          aria-label={`Save ${timeLabel(time)} time column`}
+                          onClick={() => {}}
+                          title={hasUnsavedChanges ? "Will be saved with Save All or auto-save" : "No changes to save"}
+                          aria-label={`Time column ${timeLabel(time)} auto-saves`}
+                          disabled
                         >
-                          <Save className="h-3.5 w-3.5" />
+                          <Save className={cn("h-3.5 w-3.5", hasUnsavedChanges ? "opacity-100 animate-pulse" : "opacity-50")} />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

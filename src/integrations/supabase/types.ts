@@ -14,102 +14,594 @@ export type Database = {
   }
   public: {
     Tables: {
-      classrooms: {
+      admins: {
         Row: {
-          building: string
-          capacity: number
           created_at: string
           id: string
-          name: string
-          type: string
+          permissions: Json | null
+          staff_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          permissions?: Json | null
+          staff_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permissions?: Json | null
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admins_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courses: {
+        Row: {
+          common_scope: string | null
+          course_code: string
+          course_title: string | null
+          created_at: string | null
+          department_id: string
+          faculty_id: string | null
+          id: string
+          is_compulsory: boolean
+        }
+        Insert: {
+          common_scope?: string | null
+          course_code: string
+          course_title?: string | null
+          created_at?: string | null
+          department_id: string
+          faculty_id?: string | null
+          id?: string
+          is_compulsory?: boolean
+        }
+        Update: {
+          common_scope?: string | null
+          course_code?: string
+          course_title?: string | null
+          created_at?: string | null
+          department_id?: string
+          faculty_id?: string | null
+          id?: string
+          is_compulsory?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_lecturer_assignments: {
+        Row: {
+          academic_year: string | null
+          course_id: string
+          created_at: string
+          department_id: string
+          faculty_id: string
+          id: string
+          lecturer_id: string
+          semester: string | null
+          source_file: string | null
+          source_row: number | null
           updated_at: string
         }
         Insert: {
-          building?: string
-          capacity?: number
+          academic_year?: string | null
+          course_id: string
           created_at?: string
+          department_id: string
+          faculty_id: string
           id?: string
-          name: string
-          type?: string
+          lecturer_id: string
+          semester?: string | null
+          source_file?: string | null
+          source_row?: number | null
           updated_at?: string
         }
         Update: {
-          building?: string
-          capacity?: number
+          academic_year?: string | null
+          course_id?: string
           created_at?: string
+          department_id?: string
+          faculty_id?: string
           id?: string
-          name?: string
-          type?: string
+          lecturer_id?: string
+          semester?: string | null
+          source_file?: string | null
+          source_row?: number | null
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "course_lecturer_assignments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_lecturer_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_lecturer_assignments_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_lecturer_assignments_lecturer_id_fkey"
+            columns: ["lecturer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          created_at: string | null
+          faculty_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          faculty_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          faculty_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_session_halls: {
+        Row: {
+          exam_session_id: string
+          hall_id: string
+        }
+        Insert: {
+          exam_session_id: string
+          hall_id: string
+        }
+        Update: {
+          exam_session_id?: string
+          hall_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_session_halls_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_halls_hall_id_fkey"
+            columns: ["hall_id"]
+            isOneToOne: false
+            referencedRelation: "halls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_sessions: {
+        Row: {
+          comments: string | null
+          course_id: string
+          created_at: string | null
+          end_time: string
+          exam_date: string
+          id: string
+          start_time: string
+        }
+        Insert: {
+          comments?: string | null
+          course_id: string
+          created_at?: string | null
+          end_time: string
+          exam_date: string
+          id?: string
+          start_time: string
+        }
+        Update: {
+          comments?: string | null
+          course_id?: string
+          created_at?: string | null
+          end_time?: string
+          exam_date?: string
+          id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_sessions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faculties: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
         Relationships: []
+      }
+      halls: {
+        Row: {
+          capacity: number | null
+          created_at: string | null
+          id: string
+          location: string | null
+          name: string
+          type: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          type?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
+      lecturers: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          id: string
+          specialization: string | null
+          staff_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          id: string
+          specialization?: string | null
+          staff_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          specialization?: string | null
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecturers_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecturers_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_timetable_time_columns: {
+        Row: {
+          created_at: string
+          end_time: string
+          id: string
+          sort_order: number
+          start_time: string
+          timetable_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          id?: string
+          sort_order?: number
+          start_time: string
+          timetable_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          id?: string
+          sort_order?: number
+          start_time?: string
+          timetable_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_timetable_time_columns_timetable_id_fkey"
+            columns: ["timetable_id"]
+            isOneToOne: false
+            referencedRelation: "manual_timetables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_timetable_slots: {
+        Row: {
+          color: string
+          course_id: string | null
+          created_at: string
+          day_of_week: string
+          end_time: string
+          hall_id: string | null
+          id: string
+          lecturer_id: string | null
+          notes: string | null
+          slot_type: string
+          start_time: string
+          timetable_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          course_id?: string | null
+          created_at?: string
+          day_of_week: string
+          end_time: string
+          hall_id?: string | null
+          id?: string
+          lecturer_id?: string | null
+          notes?: string | null
+          slot_type?: string
+          start_time: string
+          timetable_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          course_id?: string | null
+          created_at?: string
+          day_of_week?: string
+          end_time?: string
+          hall_id?: string | null
+          id?: string
+          lecturer_id?: string | null
+          notes?: string | null
+          slot_type?: string
+          start_time?: string
+          timetable_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_timetable_slots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_timetable_slots_hall_id_fkey"
+            columns: ["hall_id"]
+            isOneToOne: false
+            referencedRelation: "halls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_timetable_slots_lecturer_id_fkey"
+            columns: ["lecturer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_timetable_slots_timetable_id_fkey"
+            columns: ["timetable_id"]
+            isOneToOne: false
+            referencedRelation: "manual_timetables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_timetables: {
+        Row: {
+          academic_year: string
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          faculty_id: string | null
+          id: string
+          level: string
+          notes: string | null
+          published_at: string | null
+          semester: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          faculty_id?: string | null
+          id?: string
+          level?: string
+          notes?: string | null
+          published_at?: string | null
+          semester?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          faculty_id?: string | null
+          id?: string
+          level?: string
+          notes?: string | null
+          published_at?: string | null
+          semester?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_timetables_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_timetables_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
-          department: string | null
-          display_name: string | null
-          email: string | null
+          email: string
+          full_name: string
           id: string
+          is_active: boolean
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
-          department?: string | null
-          display_name?: string | null
-          email?: string | null
+          email: string
+          full_name: string
           id: string
+          is_active?: boolean
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
-          department?: string | null
-          display_name?: string | null
-          email?: string | null
+          email?: string
+          full_name?: string
           id?: string
+          is_active?: boolean
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Relationships: []
       }
-      user_roles: {
+      students: {
         Row: {
           created_at: string
+          department_id: string | null
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          level: number | null
+          student_id: string | null
         }
         Insert: {
           created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          department_id?: string | null
+          id: string
+          level?: number | null
+          student_id?: string | null
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          level?: number | null
+          student_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "students_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      get_my_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
       }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "Admin" | "Lecturer" | "Student"
+      user_role: "admin" | "lecturer" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -237,7 +729,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["Admin", "Lecturer", "Student"],
+      user_role: ["admin", "lecturer", "student"],
     },
   },
 } as const

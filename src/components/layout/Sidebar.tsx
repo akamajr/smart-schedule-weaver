@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import {
   LayoutDashboard,
@@ -15,6 +16,9 @@ import {
   GraduationCap,
   HelpCircle,
   Plus,
+  School,
+  Building2,
+  PencilRuler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,9 +27,12 @@ import { BrandLogo } from "@/components/BrandLogo";
 
 const adminLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/faculties", label: "Faculties", icon: School },
+  { to: "/departments", label: "Departments", icon: Building2 },
   { to: "/courses", label: "Courses", icon: BookOpen },
   { to: "/lecturers", label: "Lecturers", icon: Users },
   { to: "/classrooms", label: "Classrooms", icon: DoorOpen },
+  { to: "/manual-timetable", label: "Manual Timetable", icon: PencilRuler },
   { to: "/generator", label: "AI Generator", icon: Sparkles },
   { to: "/conflicts", label: "Conflicts & Alerts", icon: AlertTriangle },
   { to: "/ai", label: "Resource Lab", icon: CalendarRange },
@@ -42,8 +49,8 @@ const studentLinks = [
 
 export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
   const isAdmin = user?.role === "Admin";
   const isStudent = user?.role === "Student";
   const links = isAdmin ? adminLinks : isStudent ? studentLinks : lecturerLinks;
@@ -51,7 +58,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login");
+    router.push("/login");
   };
 
   return (
@@ -69,11 +76,11 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
 
       <nav className="flex-1 space-y-1 px-3">
         {links.map(({ to, label, icon: Icon }) => {
-          const active = location.pathname === to;
+          const active = pathname === to;
           return (
-            <NavLink
+            <Link
               key={to}
-              to={to}
+              href={to}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
@@ -84,7 +91,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
             >
               <Icon className={cn("h-4 w-4", active && "text-primary")} />
               {label}
-            </NavLink>
+            </Link>
           );
         })}
 
@@ -127,10 +134,10 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
       <div className="space-y-3 px-4 pb-3 pt-4">
         {isAdmin && (
           <Button
-            onClick={() => navigate("/generator")}
+            onClick={() => router.push("/manual-timetable")}
             className="h-11 w-full rounded-xl gradient-deep text-primary-foreground shadow-glow transition-smooth hover:opacity-95"
           >
-            <Plus className="mr-1.5 h-4 w-4" /> Quick Schedule
+            <Plus className="mr-1.5 h-4 w-4" /> Create Timetable
           </Button>
         )}
       </div>

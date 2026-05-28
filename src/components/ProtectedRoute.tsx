@@ -1,4 +1,6 @@
-import { Navigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Role } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
@@ -13,10 +15,22 @@ export const ProtectedRoute = ({
   children,
   roles,
 }: {
-  children: JSX.Element;
+  children: ReactNode;
   roles?: Role[];
 }) => {
   const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (roles && !roles.includes(user.role)) {
+      router.replace(roleHome[user.role]);
+    }
+  }, [loading, roles, router, user]);
 
   if (loading) {
     return (
@@ -26,9 +40,8 @@ export const ProtectedRoute = ({
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to={roleHome[user.role]} replace />;
-  }
+  if (!user) return null;
+  if (roles && !roles.includes(user.role)) return null;
+
   return children;
 };

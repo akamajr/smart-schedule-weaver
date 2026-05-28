@@ -8,7 +8,7 @@ type Props = {
 
 export const BrandLogo = ({ size = 44, className }: Props) => (
   <img
-    src={logo}
+    src={logo.src}
     alt="SmartTimetable logo"
     width={size}
     height={size}

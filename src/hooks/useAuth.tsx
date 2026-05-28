@@ -9,14 +9,16 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+
 import type { AuthUser, Role } from "@/lib/auth";
 
 type SignUpInput = {
   email: string;
   password: string;
   displayName: string;
-  role: Exclude<Role, "Admin">; // Admin is never granted via signup
+  role: Exclude<Role, "Admin">; // Admin is never granted via regular signup
+  departmentId?: string;
+  level?: number;
 };
 
 type Ctx = {
@@ -38,31 +40,30 @@ const fetchUserContext = async (session: Session): Promise<AuthUser> => {
   const userId = session.user.id;
   const email = session.user.email ?? "";
 
-  const [{ data: roleRows }, { data: profile }] = await Promise.all([
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId),
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url")
-      .eq("id", userId)
-      .maybeSingle(),
-  ]);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, avatar_url, role")
+    .eq("id", userId)
+    .maybeSingle();
 
-  const roles = (roleRows ?? []).map((r) => r.role as Role);
-  const priority: Role[] = ["Admin", "Lecturer", "Student"];
-  const role = priority.find((r) => roles.includes(r)) ?? "Student";
+  // Map DB role ("admin" | "lecturer" | "student") to app Role type
+  const roleMap: Record<string, Role> = {
+    admin: "Admin",
+    lecturer: "Lecturer",
+    student: "Student",
+  };
+  const role: Role = roleMap[profile?.role ?? ""] ?? "Student";
 
   return {
     id: userId,
     email,
-    username: profile?.display_name || email.split("@")[0] || "user",
+    username: profile?.full_name || email.split("@")[0] || "user",
     role,
-    displayName: profile?.display_name ?? null,
+    displayName: profile?.full_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
   };
 };
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -109,23 +110,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error?.message ?? null };
   };
 
-  const signUp: Ctx["signUp"] = async ({ email, password, displayName, role }) => {
+  const signUp: Ctx["signUp"] = async ({ email, password, displayName, role, departmentId, level }) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/`,
-        data: { display_name: displayName, role },
+        data: { 
+          display_name: displayName, 
+          role,
+          department_id: departmentId,
+          level
+        },
       },
     });
     return { error: error?.message ?? null };
   };
 
   const signInWithGoogle: Ctx["signInWithGoogle"] = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
     });
-    if (result.error) return { error: (result.error as Error).message };
+    if (error) return { error: error.message };
     return { error: null };
   };
 
@@ -147,14 +156,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
   };
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     await hydrate(data.session);
-  };
+  }, [hydrate]);
 
   const value = useMemo<Ctx>(
     () => ({ user, session, loading, signIn, signUp, signInWithGoogle, resetPassword, updatePassword, logout, refresh }),
-    [user, session, loading]
+    [user, session, loading, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

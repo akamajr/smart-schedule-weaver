@@ -13,7 +13,7 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   Printer,
   Save,
@@ -22,7 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { Toaster as SonnerToaster, toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,6 +171,7 @@ const ManualTimetable = () => {
   const [editingSlot, setEditingSlot] = useState<SlotDraft>(newSlot());
   const [deleteSlotId, setDeleteSlotId] = useState<string | null>(null);
   const [deleteTimetableOpen, setDeleteTimetableOpen] = useState(false);
+  const [deleteTimetableId, setDeleteTimetableId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showWeekends, setShowWeekends] = useState(true);
   const [isGridFullscreen, setIsGridFullscreen] = useState(false);
@@ -182,9 +183,9 @@ const ManualTimetable = () => {
   const [draggedTimeColumnId, setDraggedTimeColumnId] = useState<string | null>(null);
   const [dragOverTimeColumnId, setDragOverTimeColumnId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const gridSectionRef = useRef<HTMLElement | null>(null);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [meta, setMeta] = useState({
     title: "Manual Teaching Timetable",
     faculty_id: "",
@@ -523,6 +524,7 @@ const ManualTimetable = () => {
       },
     }));
     setHasUnsavedChanges(true);
+    triggerAutoSave();
   };
 
   const saveTimeColumn = async (column: TimeColumn) => {
@@ -589,7 +591,7 @@ const ManualTimetable = () => {
       toast.error(error.message);
       setSlots([]);
     } else {
-      setSlots((data ?? []) as Slot[]);
+      setSlots(((data ?? []) as Slot[]).map(normalizeSlotTimes));
     }
     setSlotsLoading(false);
   }, []);
@@ -761,18 +763,24 @@ const ManualTimetable = () => {
     return true;
   };
 
-  const saveTimetable = async (status: "draft" | "published") => {
+  const saveTimetable = async (
+    status: "draft" | "published",
+    options: { auto?: boolean; silent?: boolean } = {},
+  ) => {
+    const isAuto = options.auto ?? false;
+    const silent = options.silent ?? false;
     if (!schemaReady) {
-      toast.error("Apply the manual timetable Supabase migration before saving.");
-      return;
+      if (!silent) toast.error("Apply the manual timetable Supabase migration before saving.");
+      return false;
     }
-    if (!validateMeta()) return;
+    if (!validateMeta()) return false;
     if (status === "published" && conflicts.length > 0) {
-      toast.error("Resolve conflicts before publishing");
-      return;
+      if (!silent) toast.error("Resolve conflicts before publishing");
+      return false;
     }
 
     setSaving(true);
+    if (isAuto) setIsAutoSaving(true);
     const payload = {
       title: meta.title.trim(),
       faculty_id: meta.faculty_id || null,
@@ -796,8 +804,9 @@ const ManualTimetable = () => {
         .single();
       if (error) {
         setSaving(false);
-        toast.error(error.message);
-        return;
+        if (isAuto) setIsAutoSaving(false);
+        if (!silent) toast.error(error.message);
+        return false;
       }
       setTimetables((items) => items.map((item) => (item.id === data.id ? (data as Timetable) : item)));
     } else {
@@ -808,8 +817,9 @@ const ManualTimetable = () => {
         .single();
       if (error) {
         setSaving(false);
-        toast.error(error.message);
-        return;
+        if (isAuto) setIsAutoSaving(false);
+        if (!silent) toast.error(error.message);
+        return false;
       }
       timetableId = data.id;
       setActiveId(data.id);
@@ -820,7 +830,8 @@ const ManualTimetable = () => {
       const timeColumnsSaved = await saveTimeColumnsForTimetable(timetableId, customTimeColumns);
       if (!timeColumnsSaved) {
         setSaving(false);
-        return;
+        if (isAuto) setIsAutoSaving(false);
+        return false;
       }
 
       const { error: deleteError } = await supabase
@@ -830,8 +841,9 @@ const ManualTimetable = () => {
 
       if (deleteError) {
         setSaving(false);
-        toast.error(deleteError.message);
-        return;
+        if (isAuto) setIsAutoSaving(false);
+        if (!silent) toast.error(deleteError.message);
+        return false;
       }
 
       if (slots.length > 0) {
@@ -841,8 +853,8 @@ const ManualTimetable = () => {
           lecturer_id: slot.lecturer_id,
           hall_id: slot.hall_id,
           day_of_week: slot.day_of_week,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
+          start_time: normalizeTimeInput(slot.start_time),
+          end_time: normalizeTimeInput(slot.end_time),
           slot_type: slot.slot_type,
           color: slot.color,
           notes: slot.notes,
@@ -850,15 +862,19 @@ const ManualTimetable = () => {
         const { error: insertError } = await supabase.from("manual_timetable_slots").insert(inserts);
         if (insertError) {
           setSaving(false);
-          toast.error(insertError.message);
-          return;
+          if (isAuto) setIsAutoSaving(false);
+          if (!silent) toast.error(insertError.message);
+          return false;
         }
       }
       await loadSlots(timetableId);
     }
 
     setSaving(false);
-    toast.success(status === "published" ? "Timetable published" : "Timetable saved");
+    if (isAuto) setIsAutoSaving(false);
+    setHasUnsavedChanges(false);
+    if (!silent) toast.success(status === "published" ? "Timetable published" : "Timetable saved");
+    return true;
   };
 
   const openSlot = (slot?: Slot) => {
@@ -882,35 +898,36 @@ const ManualTimetable = () => {
       toast.success("Slot added");
     }
     setSlotOpen(false);
+    setHasUnsavedChanges(true);
     triggerAutoSave();
   };
 
   const triggerAutoSave = () => {
-    if (autoSaveTimeout) {
-      clearTimeout(autoSaveTimeout);
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
     }
-    const timeout = setTimeout(() => {
-      saveAllTimeColumns();
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      if (activeId) {
+        saveTimetable("draft", { auto: true, silent: true });
+      }
     }, 2000);
-    setAutoSaveTimeout(timeout);
   };
 
   useEffect(() => {
-    if (hasUnsavedChanges && activeId) {
-      triggerAutoSave();
-    }
     return () => {
-      if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [hasUnsavedChanges, activeId]);
+  }, []);
 
   const cloneSlot = (slot: Slot) => {
     setSlots((items) => [
       ...items,
       { ...slot, id: `draft-${Date.now()}`, notes: slot.notes ? `${slot.notes} (copy)` : null },
     ]);
+    setHasUnsavedChanges(true);
+    triggerAutoSave();
     toast.success("Slot cloned");
   };
 
@@ -918,21 +935,43 @@ const ManualTimetable = () => {
     if (!deleteSlotId) return;
     setSlots((items) => items.filter((slot) => slot.id !== deleteSlotId));
     setDeleteSlotId(null);
+    setHasUnsavedChanges(true);
+    triggerAutoSave();
     toast.success("Slot removed");
   };
 
+  const requestDeleteTimetable = (id: string) => {
+    setDeleteTimetableId(id);
+    setDeleteTimetableOpen(true);
+  };
+
   const deleteTimetable = async () => {
-    if (!activeId) return;
+    const targetId = deleteTimetableId ?? activeId;
+    if (!targetId) return;
     setSaving(true);
-    const { error } = await supabase.from("manual_timetables").delete().eq("id", activeId);
+    const { error } = await supabase.from("manual_timetables").delete().eq("id", targetId);
     setSaving(false);
     setDeleteTimetableOpen(false);
+    setDeleteTimetableId(null);
     if (error) return toast.error(error.message);
-    const next = timetables.filter((item) => item.id !== activeId);
+    const next = timetables.filter((item) => item.id !== targetId);
     setTimetables(next);
-    if (next[0]) selectTimetable(next[0]);
-    else resetForNew();
+    if (targetId === activeId) {
+      if (next[0]) selectTimetable(next[0]);
+      else resetForNew();
+    }
     toast.success("Timetable deleted");
+  };
+
+  const viewSavedTimetable = (item: Timetable) => {
+    selectTimetable(item);
+    toast.info(`Viewing ${item.title}`);
+  };
+
+  const updateSavedTimetable = (item: Timetable) => {
+    selectTimetable(item);
+    setDetailsCollapsed(false);
+    toast.info(`Editing ${item.title}`);
   };
 
   const validateNow = () => {
@@ -1050,6 +1089,29 @@ const ManualTimetable = () => {
                     {activeTimetable.status}
                   </Badge>
                 )}
+                {activeId && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg"
+                        title="Timetable actions"
+                        aria-label="Timetable actions"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onSelect={() => requestDeleteTimetable(activeId)}
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete timetable
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
             <div className={cn("mt-4 space-y-4", detailsCollapsed && "hidden")}>
@@ -1105,11 +1167,6 @@ const ManualTimetable = () => {
               <Field label="Notes">
                 <Textarea value={meta.notes} onChange={(e) => setMeta({ ...meta, notes: e.target.value })} className="min-h-20 rounded-xl" />
               </Field>
-              {activeId && (
-                <Button variant="destructive" className="w-full rounded-xl" onClick={() => setDeleteTimetableOpen(true)}>
-                  <Trash2 className="h-4 w-4" /> Delete Timetable
-                </Button>
-              )}
             </div>
           </section>
 
@@ -1137,24 +1194,58 @@ const ManualTimetable = () => {
                   No saved timetables yet.
                 </p>
               ) : timetables.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  onClick={() => selectTimetable(item)}
                   className={cn(
-                    "w-full rounded-xl border p-3 text-left transition-smooth hover:bg-primary-soft/40",
+                    "w-full rounded-xl border p-3 transition-smooth hover:bg-primary-soft/40",
                     activeId === item.id ? "border-primary bg-primary-soft/50" : "border-border bg-card",
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
-                    <Badge variant={item.status === "published" ? "default" : "secondary"} className="shrink-0 text-[10px]">
-                      {item.status}
-                    </Badge>
+                    <button
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => viewSavedTimetable(item)}
+                      title={`View ${item.title}`}
+                    >
+                      <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Badge variant={item.status === "published" ? "default" : "secondary"} className="text-[10px]">
+                        {item.status}
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-lg"
+                            aria-label={`Actions for ${item.title}`}
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem onSelect={() => viewSavedTimetable(item)}>
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => updateSavedTimetable(item)}>
+                            Update
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onSelect={() => requestDeleteTimetable(item.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {faculties.find((faculty) => faculty.id === item.faculty_id)?.name ?? "Faculty not set"} · {item.level} · {item.semester}
                   </p>
-                </button>
+                </div>
               ))}
             </div>
           </section>
@@ -1174,6 +1265,7 @@ const ManualTimetable = () => {
               isGridFullscreen && "h-screen overflow-auto rounded-none border-0 p-6 shadow-none",
             )}
           >
+            {isGridFullscreen && <SonnerToaster position="top-right" />}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -1279,12 +1371,12 @@ const ManualTimetable = () => {
                         transitionProperty: 'transform, opacity, box-shadow, background-color',
                       }}
                     >
-                      <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      <div className="flex min-w-0 flex-nowrap items-center justify-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className={cn(
-                            "h-8 w-8 rounded-lg text-muted-foreground",
+                            "h-7 w-7 shrink-0 rounded-lg text-muted-foreground",
                             draggedTimeColumnId === time.id && "bg-primary text-primary-foreground animate-pulse",
                           )}
                           disabled={!isCustomColumn}
@@ -1297,41 +1389,38 @@ const ManualTimetable = () => {
                           type="time"
                           value={draft.start}
                           onChange={(event) => updateTimeColumnDraft(time, "start", event.target.value)}
-                          className="h-8 w-[86px] rounded-lg bg-card px-2 text-xs"
+                          className="h-7 w-[78px] shrink-0 rounded-lg bg-card px-1.5 text-xs"
                           aria-label={`Start time for ${timeLabel(time)}`}
                         />
-                        <span className="text-xs font-semibold text-muted-foreground">-</span>
+                        <span className="shrink-0 text-xs font-semibold text-muted-foreground">-</span>
                         <Input
                           type="time"
                           value={draft.end}
                           onChange={(event) => updateTimeColumnDraft(time, "end", event.target.value)}
-                          className="h-8 w-[86px] rounded-lg bg-card px-2 text-xs"
+                          className="h-7 w-[78px] shrink-0 rounded-lg bg-card px-1.5 text-xs"
                           aria-label={`End time for ${timeLabel(time)}`}
                         />
-                        <Button
-                          variant={isChanged ? "default" : "ghost"}
-                          size="icon"
-                          className="h-8 w-8 rounded-lg"
-                          onClick={() => {}}
-                          title={hasUnsavedChanges ? "Will be saved with Save All or auto-save" : "No changes to save"}
-                          aria-label={`Time column ${timeLabel(time)} auto-saves`}
-                          disabled
-                        >
-                          <Save className={cn("h-3.5 w-3.5", hasUnsavedChanges ? "opacity-100 animate-pulse" : "opacity-50")} />
-                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 rounded-lg"
+                              className="h-7 w-7 shrink-0 rounded-lg"
                               title="Time column actions"
                               aria-label={`Actions for ${timeLabel(time)} time column`}
                             >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
+                              <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
+                            {isChanged && (
+                              <>
+                                <DropdownMenuItem onSelect={() => saveTimeColumn(time)}>
+                                  Save time range
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem onSelect={() => addTimeColumnAt(isCustomColumn ? customIndex : customTimeColumns.length)}>
                               Add before
                             </DropdownMenuItem>
@@ -1351,18 +1440,15 @@ const ManualTimetable = () => {
                             <DropdownMenuItem disabled={!canMoveRight} onSelect={() => moveTimeColumn(time.id, customTimeColumns.length - 1)}>
                               Move to end
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={() => removeTimeColumn(time)}
+                            >
+                              Delete column
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
-                          onClick={() => removeTimeColumn(time)}
-                          title="Remove time column"
-                          aria-label={`Remove ${timeLabel(time)} time column`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
                       </div>
                     </div>
                     );
@@ -1514,20 +1600,38 @@ const SlotCard = ({
 }) => (
   <article className={cn("rounded-xl border border-l-4 p-3 shadow-sm", colorClasses[slot.color], conflicted && "ring-1 ring-destructive")}>
     <div className="flex items-start justify-between gap-2">
-      <div>
-        <p className="text-[11px] font-semibold text-muted-foreground">{slot.start_time} - {slot.end_time}</p>
-        <p className="mt-1 text-sm font-bold leading-tight">{course}</p>
+      <div className="min-w-0">
+        <p className="text-sm font-bold leading-tight">{course}</p>
       </div>
-      {conflicted && <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />}
+      <div className="flex shrink-0 items-center gap-1">
+        {conflicted && <AlertTriangle className="h-4 w-4 text-destructive" />}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 rounded-lg"
+              aria-label={`Actions for ${course}`}
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem onSelect={onEdit}>
+              <Edit3 className="mr-2 h-3.5 w-3.5" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onClone}>
+              <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onDelete}>
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
     <p className="mt-2 text-xs text-muted-foreground">{lecturer ?? "No lecturer"} · {hall ?? "No hall"}</p>
-    <p className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{slot.slot_type}</p>
-    {slot.notes && <p className="mt-2 rounded-lg bg-card/70 p-2 text-xs text-muted-foreground">{slot.notes}</p>}
-    <div className="mt-3 flex justify-end gap-1">
-      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /></Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={onClone}><Copy className="h-3.5 w-3.5" /></Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /></Button>
-    </div>
   </article>
 );
 
@@ -1686,6 +1790,12 @@ const courseLabel = (slot: Slot | SlotDraft, coursesById: Map<string, Course>) =
 };
 
 const normalizeTimeInput = (value: string) => value.slice(0, 5);
+
+const normalizeSlotTimes = (slot: Slot): Slot => ({
+  ...slot,
+  start_time: normalizeTimeInput(slot.start_time),
+  end_time: normalizeTimeInput(slot.end_time),
+});
 
 const timeToMinutes = (value: string) => {
   const [hours, minutes] = value.split(":").map(Number);

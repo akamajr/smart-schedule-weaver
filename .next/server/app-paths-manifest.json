@@ -1,0 +1,6 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/(protected)/manual-timetable/page": "app/(protected)/manual-timetable/page.js",
+  "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
+  "/(protected)/courses-catalog/page": "app/(protected)/courses-catalog/page.js"
+}

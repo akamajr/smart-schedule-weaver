@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   LayoutDashboard,
   BookOpen,
@@ -24,6 +24,11 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const adminLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -47,7 +52,25 @@ const studentLinks = [
   { to: "/courses-catalog", label: "Course Catalog", icon: BookOpen },
 ];
 
-export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
+type SidebarProps = {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  floating?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+};
+
+export const Sidebar = ({
+  onNavigate,
+  collapsed = false,
+  onMouseEnter,
+  onMouseLeave,
+  floating = false,
+  isPinned = false,
+  onTogglePin,
+}: SidebarProps) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -62,11 +85,41 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-sidebar">
+    <aside
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={cn(
+        "flex h-screen flex-col border-r border-border bg-sidebar transition-all duration-200",
+        collapsed ? "w-[70px]" : "w-64 shadow-xl",
+        floating && "absolute left-0 top-0 z-[90]",
+      )}
+    >
+      {/* Toggle Pin Button */}
+      {onTogglePin && (
+        <div className={cn("flex items-center justify-between px-4 pb-2 pt-4 border-b border-border/50", collapsed && "justify-center px-2")}>
+          <span className={cn("text-[10px] font-bold uppercase tracking-wider text-muted-foreground", collapsed && "hidden")}>
+            Navigation
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-lg shrink-0"
+            onClick={onTogglePin}
+            title={isPinned ? "Collapse Sidebar" : "Pin Sidebar"}
+          >
+            {isPinned ? (
+              <ChevronLeft className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Brand */}
-      <div className="flex items-center gap-3 px-6 pt-7 pb-6">
+      <div className={cn("flex items-center gap-3 px-4 pb-5 pt-5", collapsed && "justify-center px-2")}>
         <BrandLogo size={44} />
-        <div>
+        <div className={cn(collapsed && "hidden")}>
           <p className="font-display text-base font-bold leading-none">SmartTimetable</p>
           <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {isAdmin ? "AI Schedule Generator" : "Faculty Portal"}
@@ -77,22 +130,29 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
       <nav className="flex-1 space-y-1 px-3">
         {links.map(({ to, label, icon: Icon }) => {
           const active = pathname === to;
-          return (
+          const link = (
             <Link
               key={to}
               href={to}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
+                collapsed && "justify-center px-2",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
               )}
             >
-              <Icon className={cn("h-4 w-4", active && "text-primary")} />
-              {label}
+              <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+              <span className={cn(collapsed && "hidden")}>{label}</span>
             </Link>
           );
+          return collapsed ? (
+            <Tooltip key={to}>
+              <TooltipTrigger asChild>{link}</TooltipTrigger>
+              <TooltipContent side="right">{label}</TooltipContent>
+            </Tooltip>
+          ) : link;
         })}
 
         {!isAdmin && (
@@ -101,6 +161,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
               onClick={() => setSettingsOpen((o) => !o)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
+                collapsed && "justify-center px-2",
                 settingsOpen
                   ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
@@ -108,10 +169,11 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
               aria-expanded={settingsOpen}
             >
               <Settings className={cn("h-4 w-4", settingsOpen && "text-primary")} />
-              Settings
+              <span className={cn(collapsed && "hidden")}>Settings</span>
               <ChevronDown
                 className={cn(
                   "ml-auto h-4 w-4 transition-transform",
+                  collapsed && "hidden",
                   settingsOpen && "rotate-180"
                 )}
               />
@@ -133,31 +195,62 @@ export const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
 
       <div className="space-y-3 px-4 pb-3 pt-4">
         {isAdmin && (
-          <Button
-            onClick={() => router.push("/manual-timetable")}
-            className="h-11 w-full rounded-xl gradient-deep text-primary-foreground shadow-glow transition-smooth hover:opacity-95"
-          >
-            <Plus className="mr-1.5 h-4 w-4" /> Create Timetable
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => router.push("/manual-timetable")}
+                className={cn("h-11 w-full rounded-xl gradient-deep text-primary-foreground shadow-glow transition-smooth hover:opacity-95", collapsed && "px-0")}
+              >
+                <Plus className={cn("h-4 w-4", !collapsed && "mr-1.5")} />
+                <span className={cn(collapsed && "hidden")}>Create Timetable</span>
+              </Button>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="right">Create Timetable</TooltipContent>}
+          </Tooltip>
         )}
       </div>
 
       <div className="space-y-1 border-t border-border px-3 py-3">
-        <button
-          onClick={() => {/* support stub */}}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-smooth hover:bg-sidebar-accent/60 hover:text-foreground"
-        >
-          <HelpCircle className="h-4 w-4" />
-          Support
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-smooth hover:bg-destructive/10"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
+        <SidebarAction collapsed={collapsed} label="Support" icon={HelpCircle} onClick={() => {/* support stub */}} />
+        <SidebarAction collapsed={collapsed} label="Sign Out" icon={LogOut} onClick={handleLogout} destructive />
       </div>
     </aside>
   );
+};
+
+const SidebarAction = ({
+  collapsed,
+  label,
+  icon: Icon,
+  onClick,
+  destructive = false,
+}: {
+  collapsed: boolean;
+  label: string;
+  icon: typeof HelpCircle;
+  onClick: () => void;
+  destructive?: boolean;
+}) => {
+  const button = (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
+        collapsed && "justify-center px-2",
+        destructive
+          ? "text-destructive hover:bg-destructive/10"
+          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className={cn(collapsed && "hidden")}>{label}</span>
+    </button>
+  );
+
+  return collapsed ? (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  ) : button;
 };

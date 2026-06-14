@@ -78,29 +78,29 @@
   }
 
   .dark {
-    --background: 222 47% 7%;
+    --background: 0 0% 9.02%;          /* #171717 */
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 10%;
+    --card: 0 0% 12.94%;               /* #212121 */
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 10%;
+    --popover: 0 0% 12.94%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 244 92% 72%;
-    --primary-foreground: 222 47% 7%;
-    --primary-glow: 244 92% 80%;
-    --primary-soft: 244 50% 18%;
-    --primary-deep: 244 80% 60%;
+    --primary: 245.17 85.22% 52.55%;   /* #4131eb */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 245.17 85.22% 62.55%;
+    --primary-soft: 245 60% 19%;
+    --primary-deep: 245.17 85.22% 52.55%;
 
-    --secondary: 217 33% 17%;
+    --secondary: 0 0% 12.94%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 17%;
+    --muted: 0 0% 12.94%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 244 50% 18%;
-    --accent-foreground: 244 92% 80%;
+    --accent: 245 60% 19%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -120,20 +120,20 @@
 
     --border: 217 33% 20%;
     --input: 217 33% 20%;
-    --ring: 244 92% 72%;
+    --ring: 245.17 85.22% 52.55%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(244 75% 57%), hsl(258 90% 66%));
-    --gradient-deep: linear-gradient(135deg, hsl(244 80% 50%), hsl(244 75% 57%));
-    --gradient-soft: linear-gradient(135deg, hsl(244 50% 18%), hsl(222 47% 10%));
-    --gradient-hero: linear-gradient(135deg, hsl(244 50% 14%), hsl(222 47% 8%));
-    --gradient-dark: linear-gradient(135deg, hsl(222 47% 4%), hsl(222 47% 10%));
+    --gradient-primary: linear-gradient(135deg, #4131eb, #4131eb);
+    --gradient-deep: linear-gradient(135deg, #4131eb, #4131eb);
+    --gradient-soft: linear-gradient(135deg, hsl(245 60% 19%), #212121);
+    --gradient-hero: linear-gradient(135deg, hsl(244 50% 14%), #171717);
+    --gradient-dark: linear-gradient(135deg, #171717, #212121);
 
-    --sidebar-background: 222 47% 9%;
+    --sidebar-background: 0 0% 12.94%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 244 92% 72%;
-    --sidebar-primary-foreground: 222 47% 7%;
-    --sidebar-accent: 244 50% 18%;
-    --sidebar-accent-foreground: 244 92% 80%;
+    --sidebar-primary: 245.17 85.22% 52.55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 245 60% 19%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 217 33% 20%;
     --sidebar-ring: 244 92% 72%;
   }

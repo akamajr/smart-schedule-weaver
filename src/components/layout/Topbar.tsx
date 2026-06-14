@@ -145,7 +145,7 @@ export const Topbar = ({ onMenu }: { onMenu?: () => void }) => {
   const displayName = user?.displayName || user?.username || "User";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md md:px-8">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md md:px-8">
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenu}>
         <Menu className="h-5 w-5" />
       </Button>
@@ -170,11 +170,14 @@ export const Topbar = ({ onMenu }: { onMenu?: () => void }) => {
         {/* Notification bell */}
         <DropdownMenu open={open} onOpenChange={(v) => { setOpen(v); if (v) { /* mark none auto—user sees them */ } }}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative rounded-xl text-muted-foreground hover:text-foreground">
-              <Bell className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-xl text-muted-foreground hover:text-foreground">
+              <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
-                <span className="absolute right-2 top-2 flex h-2 w-2 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-white animate-pulse-soft">
-                  {unreadCount > 9 ? "9+" : unreadCount > 1 ? String(unreadCount) : ""}
+                <span
+                  className="absolute -right-1 -top-1 flex min-h-6 min-w-6 items-center justify-center rounded-full border-2 border-background bg-destructive px-1.5 text-[11px] font-bold leading-none text-white shadow-sm animate-pulse-soft"
+                  aria-label={`${unreadCount} unread notifications`}
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
             </Button>

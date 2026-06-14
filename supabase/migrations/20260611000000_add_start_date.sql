@@ -1,0 +1,2 @@
+ALTER TABLE public.manual_timetables
+ADD COLUMN IF NOT EXISTS start_date TEXT NOT NULL DEFAULT '2026-01-27';

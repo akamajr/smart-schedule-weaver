@@ -378,12 +378,15 @@ export type Database = {
         Row: {
           color: string
           course_id: string | null
+          course_ids: string[] | null
           created_at: string
           day_of_week: string
           end_time: string
           hall_id: string | null
+          hall_ids: string[] | null
           id: string
           lecturer_id: string | null
+          lecturer_ids: string[] | null
           notes: string | null
           slot_type: string
           start_time: string
@@ -393,12 +396,15 @@ export type Database = {
         Insert: {
           color?: string
           course_id?: string | null
+          course_ids?: string[] | null
           created_at?: string
           day_of_week: string
           end_time: string
           hall_id?: string | null
+          hall_ids?: string[] | null
           id?: string
           lecturer_id?: string | null
+          lecturer_ids?: string[] | null
           notes?: string | null
           slot_type?: string
           start_time: string
@@ -408,12 +414,15 @@ export type Database = {
         Update: {
           color?: string
           course_id?: string | null
+          course_ids?: string[] | null
           created_at?: string
           day_of_week?: string
           end_time?: string
           hall_id?: string | null
+          hall_ids?: string[] | null
           id?: string
           lecturer_id?: string | null
+          lecturer_ids?: string[] | null
           notes?: string | null
           slot_type?: string
           start_time?: string
@@ -458,13 +467,16 @@ export type Database = {
           created_by: string | null
           department_id: string | null
           faculty_id: string | null
+          header_text: string | null
           id: string
           level: string
           notes: string | null
           published_at: string | null
           semester: string
+          start_date: string
           status: string
           title: string
+          type: string
           updated_at: string
         }
         Insert: {
@@ -473,13 +485,16 @@ export type Database = {
           created_by?: string | null
           department_id?: string | null
           faculty_id?: string | null
+          header_text?: string | null
           id?: string
           level?: string
           notes?: string | null
           published_at?: string | null
           semester?: string
+          start_date?: string
           status?: string
           title: string
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -488,13 +503,16 @@ export type Database = {
           created_by?: string | null
           department_id?: string | null
           faculty_id?: string | null
+          header_text?: string | null
           id?: string
           level?: string
           notes?: string | null
           published_at?: string | null
           semester?: string
+          start_date?: string
           status?: string
           title?: string
+          type?: string
           updated_at?: string
         }
         Relationships: [
@@ -598,6 +616,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {

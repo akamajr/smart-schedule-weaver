@@ -1,252 +1,426 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useDeferredValue, useState } from "react";
+import {
+  Plus, Pencil, Trash2, Loader2, Search, List, LayoutGrid,
+  ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
+  User, Mail, Phone, CheckCircle2, XCircle
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Plus, Pencil, Search, Users, AlertTriangle, ClipboardList,
-  Filter, Download, DoorOpen, AlertCircle, Sparkles, Mail, History as HistoryIcon, RefreshCw,
-} from "lucide-react";
-import { lecturers as seed, Lecturer } from "@/lib/mockData";
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { StatCard } from "@/components/StatCard";
+import { useAuth } from "@/hooks/useAuth";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { cn } from "@/lib/utils";
 
-const Lecturers = () => {
-  const [items, setItems] = useState<Lecturer[]>(seed);
+// ── Types ──────────────────────────────────────────────────────────────────────
+type Lecturer = {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  is_active: boolean;
+  role: "lecturer";
+};
+type SortKey = "full_name" | "email" | "is_active";
+type SortDir = "asc" | "desc";
+
+const STORAGE_KEY = "lecturers_view_mode";
+const PAGE_SIZE = 20;
+
+const SortIcon = ({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) => {
+  if (col !== sortKey) return <ChevronsUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />;
+  return sortDir === "asc" ? <ChevronUp className="ml-1 inline h-3.5 w-3.5" /> : <ChevronDown className="ml-1 inline h-3.5 w-3.5" />;
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export default function Lecturers() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Admin";
+
+  const [viewMode, setViewMode] = useState<"grid" | "table">(() => {
+    if (typeof window === "undefined") return "table";
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v === "grid" || v === "table" ? v : "table";
+  });
+
+  const [items, setItems] = useState<Lecturer[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [form, setForm] = useState({ name: "", title: "Lecturer", email: "", department: "Computer Science" });
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const [form, setForm] = useState({ full_name: "", email: "", phone: "", is_active: true });
+  
+  const [searchRaw, setSearchRaw] = useState("");
+  const search = useDeferredValue(searchRaw);
+  const [sortKey, setSortKey] = useState<SortKey>("full_name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [page, setPage] = useState(1);
 
-  const filtered = items.filter((l) => `${l.name} ${l.email} ${l.department}`.toLowerCase().includes(q.toLowerCase()));
+  // ── Load ───────────────────────────────────────────────────────────────────
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, phone, is_active, role")
+      .eq("role", "lecturer")
+      .order("full_name");
 
-  const add = () => {
-    if (!form.name || !form.email) return toast.error("Please fill all fields");
-    setItems((p) => [{
-      id: `l${Date.now()}`,
-      name: form.name, title: form.title, email: form.email, department: form.department,
-      status: "online", available: true, courses: [], preferredRoom: "Hall A",
-      constraints: ["Mon-Fri"], avatarSeed: form.name,
-    }, ...p]);
-    toast.success("Lecturer added");
-    setOpen(false);
-    setForm({ name: "", title: "Lecturer", email: "", department: "Computer Science" });
+    if (error) toast.error(error.message);
+    else setItems((data ?? []) as Lecturer[]);
+
+    setLoading(false);
+  };
+  
+  useEffect(() => { load(); }, []);
+
+  // ── Filter → sort → paginate ───────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return q
+      ? items.filter((d) => 
+          d.full_name.toLowerCase().includes(q) || 
+          d.email.toLowerCase().includes(q)
+        )
+      : items;
+  }, [items, search]);
+
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    const av = a[sortKey] ?? "";
+    const bv = b[sortKey] ?? "";
+    return sortDir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  }), [filtered, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paginated = useMemo(() => sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [sorted, page]);
+  
+  useEffect(() => { setPage(1); }, [search, sortKey, sortDir]);
+
+  const handleSort = (col: SortKey) => {
+    if (col === sortKey) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(col); setSortDir("asc"); }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header bar */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <span className="font-display text-lg font-bold text-primary hidden md:block">Scholarly AI</span>
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search faculty..."
-              className="h-11 rounded-2xl border-transparent bg-primary-soft/60 pl-11"
-            />
-          </div>
+  const changeView = (m: "grid" | "table") => {
+    setViewMode(m);
+    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, m);
+    setPage(1);
+  };
+
+  // ── Dialog ─────────────────────────────────────────────────────────────────
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) { 
+      setEditingId(null); 
+      setForm({ full_name: "", email: "", phone: "", is_active: true }); 
+    }
+  };
+
+  const openEdit = (l: Lecturer) => {
+    setEditingId(l.id);
+    setForm({ 
+      full_name: l.full_name, 
+      email: l.email, 
+      phone: l.phone || "", 
+      is_active: l.is_active 
+    });
+    setOpen(true);
+  };
+
+  // ── Save ───────────────────────────────────────────────────────────────────
+  const submit = async () => {
+    if (!form.full_name.trim()) return toast.error("Full name is required");
+    if (!form.email.trim()) return toast.error("Email is required");
+    
+    setSaving(true);
+
+    const payload = {
+      full_name: form.full_name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim() || null,
+      is_active: form.is_active,
+      role: "lecturer" as const
+    };
+
+    if (editingId) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(payload)
+        .eq("id", editingId)
+        .select("id, full_name, email, phone, is_active, role")
+        .single();
+        
+      setSaving(false);
+      if (error) return toast.error(error.message);
+      
+      setItems((p) =>
+        p.map((x) => x.id === editingId ? (data as Lecturer) : x)
+          .sort((a, b) => a.full_name.localeCompare(b.full_name))
+      );
+      toast.success("Lecturer updated");
+    } else {
+      const id = crypto.randomUUID();
+      const { data, error } = await supabase
+        .from("profiles")
+        .insert({ ...payload, id })
+        .select("id, full_name, email, phone, is_active, role")
+        .single();
+        
+      setSaving(false);
+      if (error) return toast.error(error.message);
+      
+      setItems((p) => [...p, data as Lecturer].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      toast.success("Lecturer added");
+    }
+    handleOpenChange(false);
+  };
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  const remove = async (l: Lecturer) => {
+    if (!confirm(`Remove "${l.full_name}"? This may fail if they are assigned to courses or timetables.`)) return;
+    const prev = items;
+    setItems((p) => p.filter((x) => x.id !== l.id));
+    const { error } = await supabase.from("profiles").delete().eq("id", l.id);
+    if (error) { setItems(prev); toast.error(error.message); }
+    else toast.success(`${l.full_name} removed`);
+  };
+
+  // ── Form Fields ────────────────────────────────────────────────────────────
+  const FormFields = () => {
+    return (
+      <div className="grid gap-4 py-2">
+        <div>
+          <Label>Full Name</Label>
+          <Input className="mt-1.5 rounded-xl" value={form.full_name}
+            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+            placeholder="e.g. Dr. Jane Doe" />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" className="rounded-xl text-primary hover:bg-primary-soft" onClick={() => toast.info("Faculty import")}>
-            Import Faculty
-          </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="h-11 rounded-2xl gradient-deep px-5 text-primary-foreground shadow-glow">
-                <Plus className="mr-2 h-4 w-4" /> Add New Lecturer
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-2xl">
-              <DialogHeader><DialogTitle>Add Lecturer</DialogTitle></DialogHeader>
-              <div className="grid gap-4">
-                <div>
-                  <Label>Full Name</Label>
-                  <Input className="mt-1.5 rounded-xl" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Dr. Jane Doe" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Title</Label>
-                    <Input className="mt-1.5 rounded-xl" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Department</Label>
-                    <Input className="mt-1.5 rounded-xl" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input className="mt-1.5 rounded-xl" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="j.doe@scholarly.edu" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button className="rounded-xl gradient-deep text-primary-foreground" onClick={add}>
-                  Add lecturer
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        
+        <div>
+          <Label>Email</Label>
+          <Input className="mt-1.5 rounded-xl" type="email" value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="e.g. j.doe@university.edu" />
+        </div>
+
+        <div>
+          <Label>Phone (Optional)</Label>
+          <Input className="mt-1.5 rounded-xl" type="tel" value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="e.g. +1 234 567 890" />
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-border p-3">
+          <div>
+            <Label className="text-base">Active Status</Label>
+            <p className="text-xs text-muted-foreground">If disabled, lecturer cannot be assigned to new timetables.</p>
+          </div>
+          <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
         </div>
       </div>
+    );
+  };
 
-      {/* Title */}
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Lecturer Management Hub</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Review faculty profiles and availability constraints.</p>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Total Lecturers" value={items.length} icon={Users} accent="primary" trend="Overview" />
-        <StatCard title="Availability Conflicts" value={items.filter((l) => l.hasOverlap).length} icon={AlertTriangle} accent="warning" trend="Action Required" trendTone="warning" />
-        <StatCard title="Pending Constraints" value={5} icon={ClipboardList} accent="info" trend="Workflow" />
-      </div>
-
-      {/* Faculty masonry */}
-      <div className="flex items-center justify-between">
-        <h3 className="font-display text-lg font-semibold">Faculty Directory</h3>
-        <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Filter className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Download className="h-4 w-4" /></Button>
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
-          No lecturers match your search.
-        </div>
-      ) : (
-        <div className="columns-1 gap-5 sm:columns-2 lg:columns-3 xl:columns-4 [&>*]:mb-5">
-          {filtered.map((l, i) => {
-            const tall = i % 5 === 0 || l.hasOverlap;
-            return (
-              <article
-                key={l.id}
-                className={cn(
-                  "group break-inside-avoid rounded-3xl border p-5 shadow-card transition-smooth hover:-translate-y-0.5 hover:shadow-elegant",
-                  l.hasOverlap ? "border-warning/40 bg-warning-soft/40" : "border-border bg-card"
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <InitialsAvatar seed={l.name} size={48} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-base font-bold leading-tight">{l.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{l.title}</p>
-                  </div>
-                  <StatusBadge status={l.status} />
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-                    {l.department}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
-                    <DoorOpen className="h-3 w-3" /> {l.preferredRoom}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {l.constraints.map((c, idx) => (
-                    <span key={idx} className="rounded-full bg-secondary/70 px-2 py-0.5 text-[11px] text-muted-foreground">
-                      {c}
-                    </span>
-                  ))}
-                </div>
-
-                {l.courses.length > 0 && (
-                  <p className="mt-3 text-[11px] text-muted-foreground">
-                    Teaches: <span className="font-medium text-foreground">{l.courses.join(", ")}</span>
-                  </p>
-                )}
-
-                {tall && l.hasOverlap && (
-                  <p className="mt-3 inline-flex items-center gap-1 rounded-xl bg-destructive/10 px-3 py-1.5 text-[11px] font-semibold text-destructive">
-                    <AlertCircle className="h-3 w-3" /> Overlap detected — review schedule
-                  </p>
-                )}
-
-                <div className="mt-4 flex items-center justify-end opacity-60 transition-smooth group-hover:opacity-100">
-                  <Button size="sm" variant="ghost" className="h-8 rounded-lg text-primary hover:bg-primary-soft" onClick={() => toast.info("Edit lecturer")}>
-                    <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                  </Button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {/* AI recommendation + Quick actions */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-primary-soft via-card to-primary-soft/40 p-6 shadow-card">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI Smart Recommendation</p>
-          <h3 className="mt-2 font-display text-2xl font-bold">Optimize Humanities Allocation</h3>
-          <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-            Based on historical student density and Prof. Michael Chen's recent sabbaticals, the AI suggests
-            re-allocating <span className="font-semibold text-foreground">Room 402</span> to History modules for the next semester
-            to reduce travel time for elderly faculty.
-          </p>
-          <div className="mt-5 flex items-center gap-3">
-            <Button className="rounded-2xl gradient-deep text-primary-foreground shadow-glow" onClick={() => toast.success("Reviewing proposal…")}>
-              Review Proposal
-            </Button>
-            <button className="text-sm font-semibold text-muted-foreground hover:text-foreground">Dismiss</button>
-          </div>
-          <Sparkles className="pointer-events-none absolute right-6 top-6 h-20 w-20 text-primary/15" strokeWidth={1} />
-          <Sparkles className="pointer-events-none absolute right-24 bottom-4 h-10 w-10 text-primary/20" strokeWidth={1} />
-        </div>
-
-        <div className="rounded-3xl border border-border bg-card p-6 shadow-card">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h3 className="font-display text-base font-semibold">Quick Actions</h3>
-          </div>
-          <div className="mt-4 space-y-2">
-            {[
-              { label: "Email Faculty Reminders", icon: Mail },
-              { label: "Audit Availability Changes", icon: HistoryIcon },
-              { label: "Sync with HR Database", icon: RefreshCw },
-            ].map(({ label, icon: Icon }) => (
-              <button
-                key={label}
-                onClick={() => toast.success(label)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 py-3 text-sm font-medium transition-smooth hover:border-primary/40 hover:bg-primary-soft/40"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                  <Icon className="h-4 w-4" />
-                </span>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+  const PaginationBar = () => (
+    <div className="flex flex-col items-center justify-between gap-3 pt-2 sm:flex-row">
+      <p className="text-sm text-muted-foreground">
+        Showing {sorted.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of{" "}
+        <span className="font-medium">{sorted.length}</span>{search && " result" + (sorted.length !== 1 ? "s" : "")}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <Button size="sm" variant="outline" className="h-8 w-8 rounded-lg p-0" disabled={page === 1} onClick={() => setPage(1)}>«</Button>
+        <Button size="sm" variant="outline" className="h-8 w-8 rounded-lg p-0" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <span className="min-w-[6ch] text-center text-sm font-medium">{page} / {totalPages}</span>
+        <Button size="sm" variant="outline" className="h-8 w-8 rounded-lg p-0" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+        <Button size="sm" variant="outline" className="h-8 w-8 rounded-lg p-0" disabled={page === totalPages} onClick={() => setPage(totalPages)}>»</Button>
       </div>
     </div>
   );
-};
 
-const StatusBadge = ({ status }: { status: Lecturer["status"] }) => {
-  const map = {
-    online: { label: "Online", cls: "bg-success-soft text-success", dot: "bg-success" },
-    busy: { label: "Busy", cls: "bg-warning-soft text-warning", dot: "bg-warning" },
-    sabbatical: { label: "Sabbatical", cls: "bg-secondary text-muted-foreground", dot: "bg-muted-foreground" },
-  } as const;
-  const s = map[status];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider", s.cls)}>
-      <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />
-      {s.label}
-    </span>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Lecturers</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Manage academic staff profiles.{isAdmin && " Add or edit below."}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center rounded-xl border border-border bg-card p-1">
+            <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="sm" className="h-8 rounded-lg px-2.5" onClick={() => changeView("grid")}>
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button variant={viewMode === "table" ? "secondary" : "ghost"} size="sm" className="h-8 rounded-lg px-2.5" onClick={() => changeView("table")}>
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          {isAdmin && (
+            <Dialog open={open && !editingId} onOpenChange={(v) => { if (!editingId) handleOpenChange(v); }}>
+              <DialogTrigger asChild>
+                <Button className="h-11 rounded-2xl gradient-deep px-5 text-primary-foreground shadow-glow">
+                  <Plus className="mr-2 h-4 w-4" /> Add Lecturer
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-2xl max-w-md">
+                <DialogHeader><DialogTitle>New Lecturer</DialogTitle></DialogHeader>
+                <FormFields />
+                <DialogFooter>
+                  <Button variant="outline" className="rounded-xl" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                  <Button className="rounded-xl gradient-deep text-primary-foreground" onClick={submit} disabled={saving}>
+                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Add Lecturer"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input className="rounded-xl pl-9" placeholder="Search by name or email…"
+          value={searchRaw} onChange={(e) => setSearchRaw(e.target.value)} />
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
+          {search ? `No lecturers match "${search}".` : `No lecturers yet.${isAdmin ? " Click \"Add Lecturer\" to get started." : ""}`}
+        </div>
+      ) : viewMode === "table" ? (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("full_name")}>
+                    Name <SortIcon col="full_name" sortKey={sortKey} sortDir={sortDir} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("email")}>
+                    Email <SortIcon col="email" sortKey={sortKey} sortDir={sortDir} />
+                  </TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort("is_active")}>
+                    Status <SortIcon col="is_active" sortKey={sortKey} sortDir={sortDir} />
+                  </TableHead>
+                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="font-medium font-display">
+                      <div className="flex items-center gap-3">
+                        <InitialsAvatar seed={l.full_name} size={32} />
+                        {l.full_name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{l.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
+                    <TableCell>
+                      {l.is_active ? (
+                        <span className="flex w-fit items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+                          <CheckCircle2 className="h-3 w-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="flex w-fit items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                          <XCircle className="h-3 w-3" /> Inactive
+                        </span>
+                      )}
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <Dialog open={open && editingId === l.id} onOpenChange={(v) => { if (editingId === l.id || !v) handleOpenChange(v); }}>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 rounded-lg p-0" onClick={() => openEdit(l)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-2xl max-w-md">
+                            <DialogHeader><DialogTitle>Edit Lecturer</DialogTitle></DialogHeader>
+                            <FormFields />
+                            <DialogFooter>
+                              <Button variant="outline" className="rounded-xl" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                              <Button className="rounded-xl gradient-deep text-primary-foreground" onClick={submit} disabled={saving}>
+                                {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save Changes"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 rounded-lg p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(l)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <PaginationBar />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {paginated.map((l) => (
+              <div key={l.id} className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-5 shadow-card transition-all hover:shadow-glow">
+                {isAdmin && (
+                  <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button variant="secondary" size="icon" className="h-7 w-7 rounded-lg" onClick={() => openEdit(l)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="destructive" size="icon" className="h-7 w-7 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive" onClick={() => remove(l)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-4">
+                    <InitialsAvatar seed={l.full_name} size={64} className="text-xl" />
+                    <div className={cn(
+                      "absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-card",
+                      l.is_active ? "bg-success" : "bg-destructive"
+                    )} />
+                  </div>
+                  <h3 className="font-display text-lg font-bold">{l.full_name}</h3>
+                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5" />
+                      <span className="truncate">{l.email}</span>
+                    </div>
+                    {l.phone && (
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Phone className="h-3.5 w-3.5" />
+                        <span>{l.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <PaginationBar />
+        </div>
+      )}
+    </div>
   );
-};
-
-export default Lecturers;
-
+}

@@ -71,6 +71,8 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { detectGlobalConflicts, GlobalConflict } from "@/lib/conflicts";
+import { useGlobalConflicts } from "@/hooks/useGlobalConflicts";
 
 type Department = { id: string; name: string; faculty_id: string };
 type Faculty = { id: string; name: string };
@@ -364,7 +366,7 @@ const ManualTimetable = () => {
     return [...customTimeColumns, ...slotColumns];
   }, [customTimeColumns, sortedSlots]);
 
-  const conflicts = useMemo(() => detectConflicts(slots), [slots]);
+  const { conflicts } = useGlobalConflicts(slots, activeId ?? undefined);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -944,11 +946,18 @@ const ManualTimetable = () => {
   };
 
   const selectDepartment = (departmentId: string) => {
-    setMeta((current) => ({
-      ...current,
-      department_id: departmentId === EMPTY ? "" : departmentId,
-      scope: departmentId === EMPTY ? "faculty" : "department",
-    }));
+    setMeta((current) => {
+      const nextDeptId = departmentId === EMPTY ? "" : departmentId;
+      // If we are already in faculty scope, don't force a switch to department scope.
+      // The department dropdown is disabled in faculty scope anyway, so any trigger
+      // is likely an automatic cascade from the UI library when options change.
+      const newScope = current.scope === "faculty" ? "faculty" : (nextDeptId === "" ? "faculty" : "department");
+      return {
+        ...current,
+        department_id: nextDeptId,
+        scope: newScope,
+      };
+    });
     setSearch("");
   };
 
@@ -1904,7 +1913,7 @@ const ManualTimetable = () => {
             )}
           >
             {isGridFullscreen && <SonnerToaster position="top-right" />}
-            <TimetableNoticeHeader headerText={meta.header_text} />
+            {viewMode === "grid" && <TimetableNoticeHeader headerText={meta.header_text} />}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -2306,8 +2315,8 @@ const ManualTimetable = () => {
                     className="rounded-xl border border-border bg-card p-3 text-sm"
                   >
                     <p className="font-semibold">{conflict.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {conflict.message}
+                    <p className="mt-1 text-muted-foreground">
+                      {conflict.description}
                     </p>
                   </div>
                 ))}
@@ -2802,60 +2811,6 @@ type Conflict = {
   slotIds: string[];
 };
 
-const detectConflicts = (slots: Slot[]): Conflict[] => {
-  const conflicts: Conflict[] = [];
-  for (let i = 0; i < slots.length; i++) {
-    for (let j = i + 1; j < slots.length; j++) {
-      const a = slots[i];
-      const b = slots[j];
-      if (a.day_of_week !== b.day_of_week || !overlaps(a, b)) continue;
-      if (
-        hasSharedId(
-          normalizeIds(a.hall_ids, a.hall_id),
-          normalizeIds(b.hall_ids, b.hall_id),
-        )
-      ) {
-        conflicts.push({
-          id: `hall-${a.id}-${b.id}`,
-          title: "Hall overlap",
-          message: `${a.day_of_week} ${a.start_time}-${a.end_time}: two slots use the same hall.`,
-          slotIds: [a.id, b.id],
-        });
-      }
-      if (
-        hasSharedId(
-          normalizeIds(a.lecturer_ids, a.lecturer_id),
-          normalizeIds(b.lecturer_ids, b.lecturer_id),
-        )
-      ) {
-        conflicts.push({
-          id: `lecturer-${a.id}-${b.id}`,
-          title: "Lecturer overlap",
-          message: `${a.day_of_week} ${a.start_time}-${a.end_time}: lecturer is double-booked.`,
-          slotIds: [a.id, b.id],
-        });
-      }
-      if (
-        hasSharedId(
-          normalizeIds(a.course_ids, a.course_id),
-          normalizeIds(b.course_ids, b.course_id),
-        )
-      ) {
-        conflicts.push({
-          id: `course-${a.id}-${b.id}`,
-          title: "Course overlap",
-          message: `${a.day_of_week} ${a.start_time}-${a.end_time}: course appears in overlapping slots.`,
-          slotIds: [a.id, b.id],
-        });
-      }
-    }
-  }
-  return conflicts;
-};
-
-const overlaps = (a: Slot, b: Slot) =>
-  a.start_time < b.end_time && b.start_time < a.end_time;
-
 const courseLevel = (code: string) => {
   const match = code.match(/\d/);
   if (!match) return "Masters";
@@ -3073,14 +3028,15 @@ const DocumentTimetableView = ({
             fallbackDepartment?.name ??
             "Unassigned department";
           return (
-            <section key={departmentId} className="border-b border-border py-6 last:border-b-0">
-              <div className="flex items-start justify-between gap-3 px-2 pb-4">
+            <section key={departmentId} className="print:break-before-page border-b border-border py-6 last:border-b-0">
+              <TimetableNoticeHeader headerText={meta.header_text} />
+              <div className="flex items-start justify-between gap-3 px-2 pb-4 mt-2">
                 <div>
-                  <p className="font-mono text-sm font-bold uppercase tracking-normal text-foreground">
-                    Faculty/School: {facultyName}
+                  <p className="whitespace-pre-wrap font-mono text-sm leading-snug text-foreground uppercase">
+                    FACULTY/SCHOOL: {facultyName}
                   </p>
-                  <p className="mt-1 font-mono text-sm font-bold uppercase tracking-normal text-foreground">
-                    Department: {departmentName}
+                  <p className="whitespace-pre-wrap font-mono text-sm leading-snug text-foreground uppercase">
+                    DEPARTMENT: {departmentName}
                   </p>
                 </div>
                 <Button

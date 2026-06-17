@@ -1,631 +1,513 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Sparkles, Loader2, Download, Printer, FileSpreadsheet, FileText,
-  Users, DoorOpen, History as HistoryIcon, HelpCircle, Bell, CheckCircle2,
-  Upload, FileUp, AlertTriangle, ShieldCheck, X,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Sparkles,
+  Loader2,
+  CalendarDays,
+  Save,
+  AlertTriangle,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { daysShort } from "@/lib/mockData";
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
-type Stream = "Software Engineering" | "Network Engineering";
+type Department = { id: string; name: string; faculty_id: string };
+type Faculty = { id: string; name: string };
+type Lecturer = { id: string; full_name: string };
+type Hall = { id: string; name: string };
 
-type SessionType =
-  | "Masters"
-  | "First Sem CA"
-  | "First Sem Exams"
-  | "First Sem Resit"
-  | "Second Sem CA"
-  | "Second Sem Exams"
-  | "Second Sem Resit";
-
-const SESSION_TYPES: SessionType[] = [
-  "Masters",
-  "First Sem CA",
-  "First Sem Exams",
-  "First Sem Resit",
-  "Second Sem CA",
-  "Second Sem Exams",
-  "Second Sem Resit",
-];
-
-type Cell = {
-  time: string;
-  title: string;
-  density: "low" | "medium" | "high" | "reserved";
+type SlotDraft = {
+  course_id: string | null;
+  course_ids: string[] | null;
+  lecturer_id: string | null;
+  lecturer_ids: string[] | null;
+  hall_id: string | null;
+  hall_ids: string[] | null;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  slot_type: string;
+  color: string;
 };
 
-const initialGrid: Record<string, Cell[]> = {
-  MON: [
-    { time: "08:00 - 10:00", title: "Data Structures", density: "high" },
-    { time: "10:30 - 12:30", title: "Algorithms II", density: "high" },
-  ],
-  TUE: [
-    { time: "09:00 - 12:00", title: "Software QA", density: "medium" },
-    { time: "14:00 - 16:00", title: "Free Slot", density: "low" },
-  ],
-  WED: [
-    { time: "08:00 - 10:00", title: "Cloud Arch", density: "medium" },
-    { time: "11:00 - 13:00", title: "Ethics Lab", density: "medium" },
-  ],
-  THU: [
-    { time: "10:00 - 13:00", title: "Reserved", density: "reserved" },
-  ],
-  FRI: [
-    { time: "10:00 - 12:30", title: "Thesis Seminar", density: "medium" },
-  ],
-};
-
-type ConflictItem = {
-  type: "lecturer" | "room" | "overlap";
-  severity: "critical" | "medium" | "low";
-  day: string;
-  time: string;
-  message: string;
-};
-
-type UploadedTT = {
-  fileName: string;
-  department: string;
-  rows: { day: string; time: string; title: string; lecturer?: string; room?: string }[];
-};
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const TIMETABLE_TYPES = ["Lectures", "Exams", "Tutorials", "Resit", "Lab", "Seminar"];
 
 const Generator = () => {
-  const [stream, setStream] = useState<Stream>("Software Engineering");
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [lecturers, setLecturers] = useState<Lecturer[]>([]);
+  const [halls, setHalls] = useState<Hall[]>([]);
+
+  // Basic Setup State
+  const [facultyId, setFacultyId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
   const [level, setLevel] = useState("300");
   const [semester, setSemester] = useState("First");
-  const [sessionType, setSessionType] = useState<SessionType>("First Sem CA");
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(65);
-  const [generated, setGenerated] = useState(true);
-  const [grid, setGrid] = useState(initialGrid);
-  const [dragging, setDragging] = useState<{ day: string; idx: number } | null>(null);
-  const [uploaded, setUploaded] = useState<UploadedTT | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [conflicts, setConflicts] = useState<ConflictItem[] | null>(null);
-  const [uploadDept, setUploadDept] = useState("Network Engineering");
+  const [academicYear, setAcademicYear] = useState("2024/2025");
+  const [type, setType] = useState("Lectures");
 
-  const generate = () => {
-    setLoading(true);
+  // Advanced Constraints State
+  const [prompt, setPrompt] = useState("");
+  const [lecturerConstraints, setLecturerConstraints] = useState<{ id: string; rule: string }[]>([]);
+  const [hallConstraints, setHallConstraints] = useState<{ id: string; rule: string }[]>([]);
+
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [generatedSlots, setGeneratedSlots] = useState<SlotDraft[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  // Load static data
+  useEffect(() => {
+    const load = async () => {
+      const [facRes, deptRes, lecRes, hallRes] = await Promise.all([
+        supabase.from("faculties").select("id, name").order("name"),
+        supabase.from("departments").select("id, name, faculty_id").order("name"),
+        supabase.from("profiles").select("id, full_name").eq("role", "lecturer").order("full_name"),
+        supabase.from("halls").select("id, name").order("name"),
+      ]);
+
+      if (facRes.error) toast.error("Failed to load faculties");
+      if (deptRes.error) toast.error("Failed to load departments");
+
+      if (facRes.data) setFaculties(facRes.data);
+      if (deptRes.data) setDepartments(deptRes.data);
+      if (lecRes.data) setLecturers(lecRes.data);
+      if (hallRes.data) setHalls(hallRes.data);
+      setLoadingInitial(false);
+    };
+    load();
+  }, []);
+
+  const filteredDepartments = departments.filter(
+    (d) => d.faculty_id === facultyId,
+  );
+
+  const generateSchedule = async () => {
+    if (!departmentId) {
+      toast.error("Please select a department first.");
+      return;
+    }
+    setGenerating(true);
     setProgress(0);
+    setGeneratedSlots([]);
+
+    // Fake progress animation
     const i = setInterval(() => {
       setProgress((p) => {
-        if (p >= 100) { clearInterval(i); return 100; }
-        return p + 6;
+        if (p >= 90) return 90;
+        return p + 5;
       });
-    }, 60);
-    setTimeout(() => {
-      setGenerated(true);
-      setLoading(false);
-      setProgress(100);
-      toast.success("Schedule generated successfully");
-    }, 1300);
-  };
+    }, 500);
 
-  const onDrop = (day: string, time: string) => {
-    if (!dragging) return;
-    setGrid((prev) => {
-      const next = { ...prev };
-      const moved = { ...next[dragging.day][dragging.idx], time };
-      next[dragging.day] = next[dragging.day].filter((_, i) => i !== dragging.idx);
-      next[day] = [...(next[day] || []), moved];
-      return next;
-    });
-    setDragging(null);
-    toast.success(`Moved to ${day} ${time}`);
-  };
-
-  const parseUpload = async (file: File) => {
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).filter(Boolean);
-    const rows: UploadedTT["rows"] = [];
-    const header = lines[0]?.toLowerCase() || "";
-    const startIdx = header.includes("day") && header.includes("time") ? 1 : 0;
-    for (let i = startIdx; i < lines.length; i++) {
-      const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-      if (cols.length < 3) continue;
-      rows.push({
-        day: cols[0]?.toUpperCase().slice(0, 3) || "MON",
-        time: cols[1] || "",
-        title: cols[2] || "",
-        lecturer: cols[3] || undefined,
-        room: cols[4] || undefined,
-      });
-    }
-    if (rows.length === 0) {
-      rows.push(
-        { day: "MON", time: "08:00 - 10:00", title: "Network Security", lecturer: "Dr. Chen", room: "Hall A" },
-        { day: "WED", time: "11:00 - 13:00", title: "Routing Protocols", lecturer: "Dr. Patel", room: "Lab 3" },
-        { day: "TUE", time: "09:00 - 12:00", title: "Wireless Systems", lecturer: "Dr. Owen", room: "Hall A" },
-      );
-    }
-    return rows;
-  };
-
-  const overlaps = (a: string, b: string) => {
-    const toMin = (s: string) => {
-      const [h, m] = s.split(":").map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-    const range = (s: string) => {
-      const m = s.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-      if (!m) return null;
-      return [toMin(m[1]), toMin(m[2])] as [number, number];
-    };
-    const ra = range(a); const rb = range(b);
-    if (!ra || !rb) return false;
-    return ra[0] < rb[1] && rb[0] < ra[1];
-  };
-
-  const detectConflicts = (data: UploadedTT): ConflictItem[] => {
-    const issues: ConflictItem[] = [];
-    for (const row of data.rows) {
-      const ownDay = grid[row.day] || [];
-      for (const cell of ownDay) {
-        if (overlaps(cell.time, row.time)) {
-          issues.push({
-            type: "overlap",
-            severity: "critical",
-            day: row.day,
-            time: row.time,
-            message: `Time overlap on ${row.day}: "${cell.title}" (${stream}) ↔ "${row.title}" (${data.department})`,
-          });
-          if (row.room) {
-            issues.push({
-              type: "room",
-              severity: "medium",
-              day: row.day,
-              time: row.time,
-              message: `Possible room contention at ${row.room} (${row.day} ${row.time}).`,
-            });
-          }
-        }
-      }
-    }
-    const lecturers = new Set(data.rows.map((r) => r.lecturer).filter(Boolean) as string[]);
-    lecturers.forEach((lec) => {
-      const occ = data.rows.filter((r) => r.lecturer === lec);
-      for (let i = 0; i < occ.length; i++) {
-        for (let j = i + 1; j < occ.length; j++) {
-          if (occ[i].day === occ[j].day && overlaps(occ[i].time, occ[j].time)) {
-            issues.push({
-              type: "lecturer",
-              severity: "critical",
-              day: occ[i].day,
-              time: occ[i].time,
-              message: `Lecturer clash: ${lec} double-booked on ${occ[i].day}.`,
-            });
-          }
-        }
-      }
-    });
-    return issues;
-  };
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setScanning(true);
-    setConflicts(null);
     try {
-      const rows = await parseUpload(file);
-      const data: UploadedTT = { fileName: file.name, department: uploadDept, rows };
-      setUploaded(data);
-      setTimeout(() => {
-        const issues = detectConflicts(data);
-        setConflicts(issues);
-        setScanning(false);
-        if (issues.length === 0) toast.success("No conflicts detected — schedules are compatible.");
-        else toast.warning(`${issues.length} conflict(s) detected across departments.`);
-      }, 900);
-    } catch {
-      setScanning(false);
-      toast.error("Could not read this file.");
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          departmentId,
+          level,
+          semester,
+          prompt,
+          lecturerConstraints,
+          hallConstraints,
+        }),
+      });
+
+      const data = await res.json();
+      clearInterval(i);
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate schedule");
+      }
+
+      setProgress(100);
+      
+      // Add random colors to slots
+      const colors = ["indigo", "emerald", "amber", "rose", "sky", "violet"];
+      const coloredSlots = data.slots.map((s: any, idx: number) => ({
+        ...s,
+        color: colors[idx % colors.length],
+      }));
+      
+      setGeneratedSlots(coloredSlots);
+      toast.success("Schedule generated successfully by AI");
+    } catch (err: any) {
+      clearInterval(i);
+      toast.error(err.message || "An error occurred");
+    } finally {
+      setGenerating(false);
     }
-    e.target.value = "";
   };
 
-  const clearUpload = () => {
-    setUploaded(null);
-    setConflicts(null);
+  const saveToDatabase = async () => {
+    if (generatedSlots.length === 0) return;
+    if (!user) {
+      toast.error("You must be logged in to save.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const title = `${departments.find(d => d.id === departmentId)?.name} Level ${level} ${semester} Semester`;
+
+      // 1. Create Timetable
+      const { data: ttData, error: ttError } = await supabase
+        .from("manual_timetables")
+        .insert({
+          title,
+          faculty_id: facultyId,
+          department_id: departmentId,
+          level,
+          semester,
+          academic_year: academicYear,
+          start_date: new Date().toISOString().split("T")[0],
+          type,
+          status: "draft",
+          created_by: user.id,
+        })
+        .select("id")
+        .single();
+
+      if (ttError) throw ttError;
+      const ttId = ttData.id;
+
+      // 2. Insert Slots
+      const slotInserts = generatedSlots.map((s) => ({
+        timetable_id: ttId,
+        course_id: s.course_id,
+        course_ids: s.course_ids,
+        lecturer_id: s.lecturer_id,
+        lecturer_ids: s.lecturer_ids,
+        hall_id: s.hall_id,
+        hall_ids: s.hall_ids,
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        slot_type: s.slot_type,
+        color: s.color,
+      }));
+
+      const { error: slotError } = await supabase
+        .from("manual_timetable_slots")
+        .insert(slotInserts);
+
+      if (slotError) throw slotError;
+
+      toast.success("Timetable saved as Draft!");
+      router.push("/manual-timetable");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save to database");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const addLecturerConstraint = () => setLecturerConstraints([...lecturerConstraints, { id: "", rule: "" }]);
+  const updateLecturerConstraint = (idx: number, field: "id" | "rule", value: string) => {
+    const updated = [...lecturerConstraints];
+    updated[idx][field] = value;
+    setLecturerConstraints(updated);
+  };
+  const removeLecturerConstraint = (idx: number) => setLecturerConstraints(lecturerConstraints.filter((_, i) => i !== idx));
+
+  const addHallConstraint = () => setHallConstraints([...hallConstraints, { id: "", rule: "" }]);
+  const updateHallConstraint = (idx: number, field: "id" | "rule", value: string) => {
+    const updated = [...hallConstraints];
+    updated[idx][field] = value;
+    setHallConstraints(updated);
+  };
+  const removeHallConstraint = (idx: number) => setHallConstraints(hallConstraints.filter((_, i) => i !== idx));
+
+
+  if (loadingInitial) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <p className="font-display text-base font-bold tracking-wider text-foreground">SCHOLARLY HUB</p>
-          <span className="h-4 w-px bg-border" />
-          <p className="text-sm text-muted-foreground">AI Timetable Generation Hub</p>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><Bell className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><HistoryIcon className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-9 w-9 rounded-lg text-muted-foreground"><HelpCircle className="h-4 w-4" /></Button>
+    <div className="mx-auto w-full max-w-7xl space-y-8 p-4 pb-20 md:p-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <h1 className="font-display text-3xl font-bold tracking-tight">AI Generator</h1>
+          </div>
+          <p className="text-base text-muted-foreground">
+            Generate clash-free timetables automatically using OpenAI.
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[420px,1fr]">
-        {/* Configuration Engine */}
-        <div className="rounded-3xl border border-border bg-card p-6 shadow-card">
-          <h2 className="font-display text-2xl font-bold">Configuration Engine</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Define constraints for the optimization algorithm.</p>
-
-          <p className="mt-6 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Department Stream</p>
-          <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-border bg-secondary/40 p-1">
-            {(["Software Engineering", "Network Engineering"] as Stream[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => setStream(s)}
-                className={cn(
-                  "rounded-xl py-3 text-sm font-semibold leading-tight transition-smooth",
-                  stream === s ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Academic Level</Label>
-              <Select value={level} onValueChange={setLevel}>
-                <SelectTrigger className="mt-2 h-12 rounded-2xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="100">Lv 100</SelectItem>
-                  <SelectItem value="200">Lv 200</SelectItem>
-                  <SelectItem value="300">Lv 300</SelectItem>
-                  <SelectItem value="400">Lv 400</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Semester</Label>
-              <div className="mt-2 space-y-2">
-                {(["First", "Second"] as const).map((s) => (
-                  <label key={s} className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      checked={semester === s}
-                      onChange={() => setSemester(s)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    <span className="font-medium">{s} Semester</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Session Type</Label>
-            <Select value={sessionType} onValueChange={(v) => setSessionType(v as SessionType)}>
-              <SelectTrigger className="mt-2 h-12 rounded-2xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SESSION_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Currently generating: <span className="font-semibold text-foreground">{sessionType}</span>
-            </p>
-          </div>
-
-          {/* Resource snapshot */}
-          <div className="mt-6 rounded-2xl border border-border bg-primary-soft/30 p-4">
-            <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Resource Snapshot</p>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 rounded-xl bg-card p-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-success-soft text-success"><Users className="h-4 w-4" /></span>
-                <div>
-                  <p className="font-display text-lg font-bold leading-none">45 Lecturers</p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-success">Available now</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-xl bg-card p-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary"><DoorOpen className="h-4 w-4" /></span>
-                <div>
-                  <p className="font-display text-lg font-bold leading-none">30 Rooms</p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Allocated</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Activate */}
-          <Button
-            onClick={generate}
-            disabled={loading}
-            className="mt-6 h-14 w-full rounded-2xl gradient-deep text-base font-semibold text-primary-foreground shadow-glow"
-          >
-            {loading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…</>
-            ) : (
-              <><Sparkles className="mr-2 h-4 w-4" /> Activate AI Generator</>
-            )}
-          </Button>
-
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              <span>Optimizing constraints…</span>
-              <span className="text-primary">{progress}%</span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full gradient-deep transition-all" style={{ width: `${progress}%` }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Generated preview */}
-        <div className="space-y-5">
+      <div className="grid gap-8 xl:grid-cols-[1fr,450px]">
+        {/* Left: Preview */}
+        <div className="order-2 xl:order-1 space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="font-display text-2xl font-bold">Generated Preview</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Real-time optimization results and conflict analysis.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Review the AI output before saving to the database.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="rounded-xl" onClick={() => toast.info("Exporting PDF…")}>
-                <FileText className="mr-2 h-4 w-4" /> PDF
+            {generatedSlots.length > 0 && (
+              <Button onClick={saveToDatabase} disabled={saving} className="rounded-xl">
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save as Draft
               </Button>
-              <Button variant="outline" className="rounded-xl" onClick={() => toast.info("Exporting Excel…")}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
-              </Button>
-              <Button variant="outline" className="rounded-xl" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" /> Print
-              </Button>
-            </div>
+            )}
           </div>
 
-          {/* Metric cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <MetricCard accent="primary" label="Efficiency Rating" value="98%" sub="Optimal Allocation" />
-            <MetricCard accent="success" label="Conflict Status" value={<span className="text-base">No Hard Conflicts Detected</span>} sub="Validation Passed" iconSlot={<CheckCircle2 className="h-5 w-5 text-success" />} />
-            <MetricCard accent="emerald" label="Facility Load" value="85%" sub="Avg. Room Utilization" />
-          </div>
-
-          {/* Heatmap grid */}
-          {generated && (
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-card">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  <h3 className="font-display text-base font-semibold uppercase tracking-wider">Algorithm Confidence Heatmap</h3>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] font-medium text-muted-foreground">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary-soft" /> Low density</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Peak optimization</span>
-                </div>
+          <div className="rounded-3xl border border-border bg-card p-5 shadow-card min-h-[400px]">
+            {generatedSlots.length === 0 ? (
+              <div className="flex h-[300px] flex-col items-center justify-center text-center">
+                <CalendarDays className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground">No Schedule Generated</h3>
+                <p className="text-sm text-muted-foreground/70 max-w-sm mt-1">
+                  Fill out the parameters on the right and activate the AI generator to see results here.
+                </p>
               </div>
-
-              <div className="mt-5 grid grid-cols-5 gap-3">
-                {daysShort.map((d) => (
+            ) : (
+              <div className="grid grid-cols-5 gap-3">
+                {DAYS.slice(0, 5).map((d) => (
                   <div key={d} className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {d}
                   </div>
                 ))}
-                {daysShort.map((d) => (
-                  <div
-                    key={`col-${d}`}
-                    className="space-y-2"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => onDrop(d, "Auto")}
-                  >
-                    {(grid[d] || []).map((cell, idx) => (
-                      <div
-                        key={idx}
-                        draggable
-                        onDragStart={() => setDragging({ day: d, idx })}
-                        className={cn(
-                          "cursor-move rounded-xl p-3 text-left text-[11px] transition-smooth hover:-translate-y-0.5",
-                          cell.density === "high" && "gradient-deep text-primary-foreground shadow-glow",
-                          cell.density === "medium" && "bg-primary-soft text-primary border border-primary/15",
-                          cell.density === "low" && "bg-secondary/60 text-muted-foreground border border-dashed border-border",
-                          cell.density === "reserved" && "border border-dashed border-primary/30 bg-primary-soft/40 text-muted-foreground italic flex items-center justify-center min-h-[120px]",
-                        )}
-                      >
-                        {cell.density === "reserved" ? (
-                          <span className="rotate-90 text-[10px] font-semibold uppercase tracking-[0.3em]">Reserved</span>
-                        ) : (
-                          <>
-                            <p className="text-[10px] font-semibold opacity-75">{cell.time}</p>
-                            <p className="mt-2 font-semibold">{cell.title}</p>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                {DAYS.slice(0, 5).map((d) => (
+                  <div key={`col-${d}`} className="space-y-2">
+                    {generatedSlots
+                      .filter((s) => s.day_of_week === d)
+                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                      .map((cell, idx) => (
+                        <div
+                          key={idx}
+                          className={cn(
+                            "rounded-xl p-3 text-left text-[11px] border border-primary/15 bg-primary-soft text-primary",
+                          )}
+                        >
+                          <p className="text-[10px] font-semibold opacity-75">{cell.start_time} - {cell.end_time}</p>
+                          <p className="mt-1 font-semibold">{cell.slot_type}</p>
+                          <p className="mt-1 text-xs opacity-90">{cell.course_ids?.join(", ")}</p>
+                        </div>
+                      ))}
                   </div>
                 ))}
               </div>
-
-              {/* Bottom workload chip */}
-              <div className="mt-5 flex items-center gap-3 rounded-2xl bg-primary-soft/50 p-3">
-                <div className="flex -space-x-2">
-                  {["A", "B", "C"].map((s) => <InitialsAvatar key={s} seed={s} size={28} />)}
-                </div>
-                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">+43</span>
-                <p className="text-sm text-muted-foreground">Workloads balanced for all department faculty members.</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Cross-Department Conflict Scanner */}
-      <div className="rounded-3xl border border-border bg-card shadow-card overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-border bg-gradient-to-r from-primary-soft/60 via-card to-card p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-deep text-primary-foreground shadow-glow">
-              <ShieldCheck className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="font-display text-xl font-bold">Cross-Department Conflict Scanner</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Upload another department's timetable. We'll compare it against the current schedule and flag clashes, overlaps & room contention.
-              </p>
-            </div>
+            )}
           </div>
         </div>
 
-        <div className="grid gap-6 p-6 lg:grid-cols-[360px,1fr]">
-          {/* Upload panel */}
-          <div className="space-y-4">
-            <div>
-              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
-              <Select value={uploadDept} onValueChange={setUploadDept}>
-                <SelectTrigger className="mt-2 h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Network Engineering">Network Engineering</SelectItem>
-                  <SelectItem value="Software Engineering">Software Engineering</SelectItem>
-                  <SelectItem value="Data Science">Data Science</SelectItem>
-                  <SelectItem value="Cybersecurity">Cybersecurity</SelectItem>
-                  <SelectItem value="Business Computing">Business Computing</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Right: Controls */}
+        <div className="order-1 xl:order-2 space-y-6">
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-card">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-display text-lg font-bold">Generation Scope</h3>
+                <p className="text-sm text-muted-foreground">Define parameters & constraints.</p>
+              </div>
             </div>
 
-            <label className="block">
-              <input type="file" accept=".csv,.txt,.xlsx,.xls,.pdf" onChange={handleFile} className="hidden" />
-              <div className="cursor-pointer rounded-2xl border-2 border-dashed border-primary/30 bg-primary-soft/30 p-6 text-center transition-smooth hover:border-primary/60 hover:bg-primary-soft/50">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-card text-primary shadow-sm">
-                  <Upload className="h-5 w-5" />
-                </span>
-                <p className="mt-3 text-sm font-semibold">Drop file or click to upload</p>
-                <p className="mt-1 text-xs text-muted-foreground">CSV / Excel / PDF — columns: day, time, title, lecturer, room</p>
-              </div>
-            </label>
-
-            {uploaded && (
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                      <FileUp className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{uploaded.fileName}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{uploaded.department} · {uploaded.rows.length} entries</p>
-                    </div>
-                  </div>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground" onClick={clearUpload}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Results */}
-          <div className="rounded-2xl border border-border bg-secondary/20 p-5">
-            {!uploaded && !scanning && (
-              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-muted-foreground shadow-sm">
-                  <FileText className="h-6 w-6" />
-                </span>
-                <p className="mt-4 font-display text-base font-semibold">No timetable uploaded yet</p>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Once a file is uploaded, we'll cross-check every slot against the current {stream} schedule.
-                </p>
-              </div>
-            )}
-
-            {scanning && (
-              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <p className="mt-3 text-sm font-semibold">Scanning for conflicts…</p>
-                <p className="mt-1 text-xs text-muted-foreground">Comparing across days, lecturers, and rooms.</p>
-              </div>
-            )}
-
-            {!scanning && conflicts && conflicts.length === 0 && (
-              <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success-soft text-success">
-                  <CheckCircle2 className="h-6 w-6" />
-                </span>
-                <p className="mt-4 font-display text-lg font-bold">No conflicts detected</p>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  The {uploaded?.department} timetable is fully compatible with the current {stream} schedule.
-                </p>
-              </div>
-            )}
-
-            {!scanning && conflicts && conflicts.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <p className="font-display text-sm font-bold uppercase tracking-wider">
-                      {conflicts.length} Conflict{conflicts.length > 1 ? "s" : ""} Detected
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-destructive">
-                    Action required
-                  </span>
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="basic">Basic Setup</TabsTrigger>
+                <TabsTrigger value="advanced">Advanced Constraints</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="basic" className="space-y-4">
+                <div>
+                  <Label>Faculty</Label>
+                  <Select value={facultyId} onValueChange={setFacultyId}>
+                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Faculty" /></SelectTrigger>
+                    <SelectContent>
+                      {faculties.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
-                  {conflicts.map((c, i) => {
-                    const tone =
-                      c.severity === "critical"
-                        ? "border-l-destructive bg-destructive/5"
-                        : c.severity === "medium"
-                        ? "border-l-warning bg-warning-soft/40"
-                        : "border-l-primary bg-primary-soft/40";
-                    const badge =
-                      c.type === "lecturer" ? "Lecturer Clash"
-                      : c.type === "room" ? "Room Conflict"
-                      : "Time Overlap";
-                    return (
-                      <div key={i} className={cn("rounded-xl border border-border border-l-4 p-3", tone)}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground shadow-sm">
-                              {badge}
-                            </span>
-                            <p className="mt-2 text-sm font-medium">{c.message}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{c.day} · {c.time}</p>
-                          </div>
-                        </div>
+                <div>
+                  <Label>Department</Label>
+                  <Select value={departmentId} onValueChange={setDepartmentId} disabled={!facultyId}>
+                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Department" /></SelectTrigger>
+                    <SelectContent>
+                      {filteredDepartments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Level</Label>
+                    <Select value={level} onValueChange={setLevel}>
+                      <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["100", "200", "300", "400", "500"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Semester</Label>
+                    <Select value={semester} onValueChange={setSemester}>
+                      <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["First", "Second"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>Timetable Type</Label>
+                  <Select value={type} onValueChange={setType}>
+                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TIMETABLE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="advanced" className="space-y-6">
+                <div>
+                  <Label>General Instructions</Label>
+                  <Textarea 
+                    placeholder="e.g. Keep Fridays free. Try to schedule core courses in the morning."
+                    className="mt-1.5 resize-none h-20"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                  />
+                </div>
+
+                {/* Lecturer Constraints */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Lecturer Availability / Rules</Label>
+                    <Button variant="ghost" size="sm" onClick={addLecturerConstraint} className="h-6 px-2 text-xs">
+                      <Plus className="mr-1 h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                  {lecturerConstraints.map((constraint, idx) => (
+                    <div key={idx} className="flex gap-2 items-start rounded-lg bg-secondary/50 p-2">
+                      <div className="flex-1 space-y-2">
+                        <Select value={constraint.id} onValueChange={(val) => updateLecturerConstraint(idx, "id", val)}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Lecturer" /></SelectTrigger>
+                          <SelectContent>
+                            {lecturers.map(l => <SelectItem key={l.id} value={l.id}>{l.full_name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Input 
+                          placeholder="e.g. Only available on Mondays" 
+                          className="h-8 text-xs" 
+                          value={constraint.rule} 
+                          onChange={(e) => updateLecturerConstraint(idx, "rule", e.target.value)} 
+                        />
                       </div>
-                    );
-                  })}
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => removeLecturerConstraint(idx)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {lecturerConstraints.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">No specific lecturer constraints.</p>
+                  )}
                 </div>
-              </div>
-            )}
+
+                {/* Hall Constraints */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Hall Restrictions</Label>
+                    <Button variant="ghost" size="sm" onClick={addHallConstraint} className="h-6 px-2 text-xs">
+                      <Plus className="mr-1 h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                  {hallConstraints.map((constraint, idx) => (
+                    <div key={idx} className="flex gap-2 items-start rounded-lg bg-secondary/50 p-2">
+                      <div className="flex-1 space-y-2">
+                        <Select value={constraint.id} onValueChange={(val) => updateHallConstraint(idx, "id", val)}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Hall" /></SelectTrigger>
+                          <SelectContent>
+                            {halls.map(h => <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Input 
+                          placeholder="e.g. Reserve exclusively for Level 300" 
+                          className="h-8 text-xs" 
+                          value={constraint.rule} 
+                          onChange={(e) => updateHallConstraint(idx, "rule", e.target.value)} 
+                        />
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => removeHallConstraint(idx)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {hallConstraints.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">No specific hall constraints.</p>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <div className="mt-8">
+              <Button
+                onClick={generateSchedule}
+                disabled={generating}
+                className="h-12 w-full rounded-2xl gradient-deep text-base font-semibold text-primary-foreground shadow-glow"
+              >
+                {generating ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating… ({progress}%)</>
+                ) : (
+                  <><Sparkles className="mr-2 h-4 w-4" /> Activate AI Generator</>
+                )}
+              </Button>
+              
+              {generating && (
+                <div className="mt-4">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                    <div className="h-full gradient-deep transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-primary/20 bg-primary-soft/30 p-5">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-primary" />
+              <h4 className="font-semibold text-primary">How it works</h4>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              The AI will automatically pull all active <strong>Courses</strong>, <strong>Lecturers</strong>, and <strong>Halls</strong> for the selected department. 
+              Once generated, you can save the timetable as a Draft and review/edit individual slots in the <strong>Manual Timetable</strong> tab.
+            </p>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
-
-const MetricCard = ({
-  accent, label, value, sub, iconSlot,
-}: { accent: "primary" | "success" | "emerald"; label: string; value: React.ReactNode; sub: string; iconSlot?: React.ReactNode }) => {
-  const borders = {
-    primary: "border-l-primary",
-    success: "border-l-success",
-    emerald: "border-l-success",
-  };
-  return (
-    <div className={cn("rounded-2xl border border-border bg-card p-4 shadow-card border-l-4", borders[accent])}>
-      <div className="flex items-start justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        {iconSlot}
-      </div>
-      <p className="mt-3 font-display text-3xl font-bold leading-tight">{value}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{sub}</p>
     </div>
   );
 };
 
 export default Generator;
-

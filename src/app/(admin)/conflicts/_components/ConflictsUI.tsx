@@ -2,21 +2,22 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { conflicts as seed, Conflict } from "@/lib/mockData";
 import { AlertCircle, AlertTriangle, X, Wand2, Pencil, Lightbulb, Zap, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/StatCard";
+import { useGlobalConflicts } from "@/hooks/useGlobalConflicts";
+import { GlobalConflict } from "@/lib/conflicts";
 
 const Conflicts = () => {
-  const [items, setItems] = useState<Conflict[]>(seed);
+  const { conflicts: items, isLoading, error, dismissConflict } = useGlobalConflicts();
 
   const dismiss = (id: string) => {
-    setItems((p) => p.filter((c) => c.id !== id));
+    dismissConflict(id);
     toast.success("Conflict dismissed");
   };
   const accept = (id: string) => {
-    setItems((p) => p.filter((c) => c.id !== id));
+    dismissConflict(id);
     toast.success("Recommendation applied");
   };
 
@@ -93,7 +94,7 @@ const Conflicts = () => {
 
 const ConflictCard = ({
   c, onDismiss, onAccept,
-}: { c: Conflict; onDismiss: (id: string) => void; onAccept: (id: string) => void }) => {
+}: { c: GlobalConflict; onDismiss: (id: string) => void; onAccept: (id: string) => void }) => {
   const isCritical = c.severity === "critical";
   return (
     <div className={cn(

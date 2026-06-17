@@ -29,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useGlobalConflicts } from "@/hooks/useGlobalConflicts";
 
 const adminLinks = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -78,6 +79,7 @@ export const Sidebar = ({
   const isStudent = user?.role === "Student";
   const links = isAdmin ? adminLinks : isStudent ? studentLinks : lecturerLinks;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { conflicts } = useGlobalConflicts();
 
   const handleLogout = async () => {
     await logout();
@@ -100,19 +102,13 @@ export const Sidebar = ({
           <span className={cn("text-[10px] font-bold uppercase tracking-wider text-muted-foreground", collapsed && "hidden")}>
             Navigation
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-lg shrink-0"
+          <button
             onClick={onTogglePin}
-            title={isPinned ? "Collapse Sidebar" : "Pin Sidebar"}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
           >
-            {isPinned ? (
-              <ChevronLeft className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </Button>
+            {isPinned ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
         </div>
       )}
 
@@ -136,15 +132,25 @@ export const Sidebar = ({
               href={to}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
+                "group relative flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth",
                 collapsed && "justify-center px-2",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
               )}
             >
-              <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
-              <span className={cn(collapsed && "hidden")}>{label}</span>
+              <div className="flex items-center gap-3 min-w-0">
+                <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+                <span className={cn("truncate", collapsed && "hidden")}>{label}</span>
+              </div>
+              {!collapsed && to === "/conflicts" && conflicts.length > 0 && (
+                <span className="flex h-5 items-center justify-center rounded-full bg-destructive/10 px-2 text-[10px] font-bold text-destructive">
+                  {conflicts.length}
+                </span>
+              )}
+              {collapsed && to === "/conflicts" && conflicts.length > 0 && (
+                <span className="absolute right-1 top-1 flex h-3 w-3 items-center justify-center rounded-full bg-destructive border-2 border-sidebar" />
+              )}
             </Link>
           );
           return collapsed ? (

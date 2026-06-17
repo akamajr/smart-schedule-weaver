@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  distDir: ".next-dev",
+  // Removed custom distDir to ensure Vercel compatibility
 };
 
 export default nextConfig;

@@ -382,14 +382,14 @@ export default function StudentTimetableUI() {
 
       {/* Timetable Header Card */}
       {activeTimetable && (
-        <div className="rounded-2xl bg-gradient-to-r from-primary to-primary-dark p-6 text-primary-foreground shadow-elegant">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <CalendarDays className="h-6 w-6 text-primary-foreground/80" />
-            <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
+            <CalendarDays className="h-6 w-6 text-primary" />
+            <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight text-foreground">
               {activeTimetable.title}
             </h2>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm opacity-90 font-medium">
+          <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-muted-foreground">
             <span>{activeTimetable.academic_year}</span>
             <span>•</span>
             <span>{activeTimetable.semester} Semester</span>
@@ -423,49 +423,47 @@ export default function StudentTimetableUI() {
             <p>No classes scheduled found.</p>
           </div>
         ) : (
-          <div className="min-w-[900px]">
-            <div 
-              className="grid gap-2 mb-2" 
-              style={{ gridTemplateColumns: `100px repeat(${DAYS.length}, minmax(0, 1fr))` }}
+          <div className="relative mt-5 w-full max-w-full overflow-x-auto rounded-xl border border-border">
+            <div
+              className="grid w-full bg-card"
+              style={{
+                gridTemplateColumns: `140px repeat(${activeCols.length}, minmax(280px, 1fr))`,
+                minWidth: `${140 + activeCols.length * 280}px`,
+              }}
             >
-              <div className="rounded-xl bg-accent px-2 py-3 text-center text-sm font-bold text-accent-foreground border border-border shadow-sm">
-                Time
+              <div className="sticky left-0 top-0 z-30 border-b border-r border-border bg-card p-3 text-xs font-bold uppercase tracking-wider text-muted-foreground shadow-[1px_0_0_hsl(var(--border))]">
+                Day
               </div>
-              {DAYS.map((d) => (
-                <div key={d} className="rounded-xl bg-accent px-2 py-3 text-center text-sm font-bold text-accent-foreground border border-border shadow-sm">
-                  {d}
+              {activeCols.map((col) => (
+                <div key={col.id} className="sticky top-0 z-10 flex min-h-12 items-center justify-center border-b border-r border-border bg-card p-2 text-sm font-bold text-foreground last:border-r-0">
+                  {col.start_time} - {col.end_time}
+                </div>
+              ))}
+              
+              {DAYS.map((day) => (
+                <div key={day} className="contents">
+                  <div className="sticky left-0 z-20 flex min-h-[150px] items-center border-b border-r border-border bg-card p-3 text-sm font-bold shadow-[1px_0_0_hsl(var(--border))]">
+                    {day}
+                  </div>
+                  {activeCols.map((col) => {
+                    const cellSlots = activeSlots.filter(
+                      s => s.day_of_week === day && s.start_time === col.start_time && s.end_time === col.end_time
+                    );
+                    
+                    return (
+                      <div key={`${day}-${col.id}`} className="min-h-[150px] border-b border-r border-border bg-secondary/10 p-2 last:border-r-0 flex flex-col gap-2">
+                        {cellSlots.map(slot => renderSlotBlock(slot))}
+                        {cellSlots.length === 0 && (
+                          <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border/60 bg-background/50 text-xs text-muted-foreground">
+                            No class
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
-
-            {activeCols.map((col) => (
-              <div 
-                key={col.id} 
-                className="grid gap-2 mb-2"
-                style={{ gridTemplateColumns: `100px repeat(${DAYS.length}, minmax(0, 1fr))` }}
-              >
-                <div className="flex flex-col items-center justify-center rounded-xl bg-muted/40 border border-border px-1 py-4 text-center">
-                  <span className="text-sm font-bold text-foreground">{col.start_time}</span>
-                  <span className="text-xs text-muted-foreground my-0.5">to</span>
-                  <span className="text-sm font-bold text-foreground">{col.end_time}</span>
-                </div>
-                
-                {DAYS.map((day) => {
-                  const slotsForCell = activeSlots.filter(
-                    s => s.day_of_week === day && s.start_time === col.start_time && s.end_time === col.end_time
-                  );
-                  
-                  return (
-                    <div key={`${col.id}-${day}`} className="min-h-[110px] rounded-xl border border-border/50 bg-background/50 p-1.5 flex flex-col gap-1.5">
-                      {slotsForCell.map(slot => renderSlotBlock(slot))}
-                      {slotsForCell.length === 0 && (
-                        <div className="h-full w-full rounded-lg bg-muted/20 border border-dashed border-border/60"></div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
           </div>
         )}
       </div>

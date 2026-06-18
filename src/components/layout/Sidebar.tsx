@@ -50,7 +50,7 @@ const lecturerLinks = [
 ];
 
 const studentLinks = [
-  { to: "/my-timetable", label: "My Schedule", icon: CalendarCheck },
+  { to: "/student-schedule", label: "My Schedule", icon: CalendarCheck },
 ];
 
 type SidebarProps = {

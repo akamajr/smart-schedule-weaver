@@ -50,7 +50,7 @@ const lecturerLinks = [
 ];
 
 const studentLinks = [
-  { to: "/courses-catalog", label: "Course Catalog", icon: BookOpen },
+  { to: "/my-timetable", label: "My Schedule", icon: CalendarCheck },
 ];
 
 type SidebarProps = {

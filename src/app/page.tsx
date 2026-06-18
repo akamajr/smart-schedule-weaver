@@ -18,7 +18,7 @@ export default function HomePage() {
     }
     if (user.role === "Admin") router.replace("/dashboard");
     else if (user.role === "Lecturer") router.replace("/my-timetable");
-    else router.replace("/courses-catalog");
+    else router.replace("/my-timetable"); // Student
   }, [loading, router, user]);
 
   if (loading) {

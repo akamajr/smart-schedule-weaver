@@ -60,6 +60,7 @@ const Login = () => {
   const [signupRole, setSignupRole] = useState<SignupRole>("Student");
   const [departmentId, setDepartmentId] = useState("");
   const [level, setLevel] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
 
@@ -87,7 +88,7 @@ const Login = () => {
     setLoading(true);
     const { error: err } = await signIn(parsed.data.email, parsed.data.password);
     setLoading(false);
-    if (err) return setError(err);
+    if (err) return setError("Invalid login credentials");
     toast.success(`Welcome back!`);
     router.push("/");
   };
@@ -112,8 +113,8 @@ const Login = () => {
     });
     setLoading(false);
     if (err) return setError(err);
-    toast.success(`Account created. Welcome, ${data.displayName}!`);
-    router.push("/");
+    toast.success(`Account created successfully!`);
+    setVerificationSent(true);
   };
 
   const handleGoogle = async () => {
@@ -175,157 +176,184 @@ const Login = () => {
                 </p>
               </div>
 
-              <Tabs value={view} onValueChange={(v) => switchView(v as View)}>
-                <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-secondary/40 p-1">
-                  <TabsTrigger value="signin" className="rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                    Sign In
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                    Sign Up
-                  </TabsTrigger>
-                </TabsList>
+              {verificationSent ? (
+                <div className="rounded-2xl border border-success/30 bg-success-soft/20 p-6 text-center animate-fade-in shadow-sm">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/20 text-success">
+                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 font-display text-2xl font-bold text-foreground">Check your email</h3>
+                  <p className="mb-6 text-sm text-muted-foreground">
+                    We've sent a verification link to <span className="font-medium text-foreground">{email}</span>. 
+                    Please click the link to confirm your account and log in. 
+                    <br/><br/>
+                    <span className="text-xs italic">Don't see it? Check your spam folder.</span>
+                  </p>
+                  <Button 
+                    type="button"
+                    className="w-full rounded-xl" 
+                    variant="outline" 
+                    onClick={() => { setVerificationSent(false); setView("signin"); }}
+                  >
+                    Return to Sign In
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Tabs value={view} onValueChange={(v) => switchView(v as View)}>
+                    <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-secondary/40 p-1">
+                      <TabsTrigger value="signin" className="rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                        Sign In
+                      </TabsTrigger>
+                      <TabsTrigger value="signup" className="rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                        Sign Up
+                      </TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="signin">
-                  <form onSubmit={handleSignIn} className="space-y-5 pt-5">
-                    <div>
-                      <Label className="text-sm font-semibold">I'm signing in as</Label>
-                      <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-border bg-secondary/40 p-1">
-                        {SIGNIN_ROLES.map(({ value, label, icon: Icon }) => {
-                          const active = signinRole === value;
-                          return (
-                            <button
-                              key={value} type="button" onClick={() => setSigninRole(value)}
-                              className={cn(
-                                "flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-smooth",
-                                active ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        Admins sign in at <a href="/admin/login" className="font-semibold text-primary hover:underline">/admin/login</a>.
-                      </p>
-                    </div>
-
-                    <EmailField email={email} setEmail={setEmail} />
-                    <PasswordField password={password} setPassword={setPassword} show={showPwd} setShow={setShowPwd} />
-
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => switchView("forgot")}
-                        className="text-xs font-semibold text-primary hover:underline"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-
-                    {error && <ErrorBox text={error} />}
-                    <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl gradient-deep text-base font-semibold text-primary-foreground shadow-glow transition-smooth hover:opacity-95">
-                      {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in…</> : "Sign In"}
-                    </Button>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="signup">
-                  <form onSubmit={handleSignUp} className="space-y-5 pt-5">
-                    <div>
-                      <Label htmlFor="name" className="text-sm font-semibold">Full Name</Label>
-                      <div className="relative mt-2">
-                        <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                          placeholder="Jane Doe" maxLength={80} required
-                          className="h-12 rounded-2xl border-transparent bg-primary-soft/60 pl-11"
-                        />
-                      </div>
-                    </div>
-                    <EmailField email={email} setEmail={setEmail} />
-                    <PasswordField password={password} setPassword={setPassword} show={showPwd} setShow={setShowPwd} />
-
-                    <div>
-                      <Label className="text-sm font-semibold">Sign up as</Label>
-                      <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-border bg-secondary/40 p-1">
-                        {(["Student", "Lecturer"] as SignupRole[]).map((r) => {
-                          const active = signupRole === r;
-                          return (
-                            <button
-                              key={r} type="button" onClick={() => { setSignupRole(r); setError(""); }}
-                              className={cn(
-                                "rounded-xl py-2.5 text-sm font-semibold transition-smooth",
-                                active ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              {r}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Admin accounts are created internally and cannot be self-registered.
-                      </p>
-                    </div>
-
-                    {signupRole === "Student" && (
-                      <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <TabsContent value="signin">
+                      <form onSubmit={handleSignIn} className="space-y-5 pt-5">
                         <div>
-                          <Label className="text-sm font-semibold">Department</Label>
-                          <Select value={departmentId} onValueChange={setDepartmentId}>
-                            <SelectTrigger className="mt-2 h-12 rounded-2xl border-transparent bg-primary-soft/60">
-                              <SelectValue placeholder="Select dept" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {departments.map((d) => (
-                                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label className="text-sm font-semibold">I'm signing in as</Label>
+                          <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-border bg-secondary/40 p-1">
+                            {SIGNIN_ROLES.map(({ value, label, icon: Icon }) => {
+                              const active = signinRole === value;
+                              return (
+                                <button
+                                  key={value} type="button" onClick={() => setSigninRole(value)}
+                                  className={cn(
+                                    "flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-smooth",
+                                    active ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  <Icon className="h-3.5 w-3.5" />
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            Admins sign in at <a href="/admin/login" className="font-semibold text-primary hover:underline">/admin/login</a>.
+                          </p>
                         </div>
+
+                        <EmailField email={email} setEmail={setEmail} />
+                        <PasswordField password={password} setPassword={setPassword} show={showPwd} setShow={setShowPwd} />
+
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => switchView("forgot")}
+                            className="text-xs font-semibold text-primary hover:underline"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+
+                        {error && <ErrorBox text={error} />}
+                        <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl gradient-deep text-base font-semibold text-primary-foreground shadow-glow transition-smooth hover:opacity-95">
+                          {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in…</> : "Sign In"}
+                        </Button>
+                      </form>
+                    </TabsContent>
+
+                    <TabsContent value="signup">
+                      <form onSubmit={handleSignUp} className="space-y-5 pt-5">
                         <div>
-                          <Label className="text-sm font-semibold">Level</Label>
-                          <Select value={level} onValueChange={setLevel}>
-                            <SelectTrigger className="mt-2 h-12 rounded-2xl border-transparent bg-primary-soft/60">
-                              <SelectValue placeholder="Select level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="100">100 Level</SelectItem>
-                              <SelectItem value="200">200 Level</SelectItem>
-                              <SelectItem value="300">300 Level</SelectItem>
-                              <SelectItem value="400">400 Level</SelectItem>
-                              <SelectItem value="500">500 Level</SelectItem>
-                              <SelectItem value="600">600 Level</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label htmlFor="name" className="text-sm font-semibold">Full Name</Label>
+                          <div className="relative mt-2">
+                            <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
+                              placeholder="Jane Doe" maxLength={80} required
+                              className="h-12 rounded-2xl border-transparent bg-primary-soft/60 pl-11"
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )}
+                        <EmailField email={email} setEmail={setEmail} />
+                        <PasswordField password={password} setPassword={setPassword} show={showPwd} setShow={setShowPwd} />
 
-                    {error && <ErrorBox text={error} />}
-                    <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl gradient-deep text-base font-semibold text-primary-foreground shadow-glow transition-smooth hover:opacity-95">
-                      {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Account"}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
+                        <div>
+                          <Label className="text-sm font-semibold">Sign up as</Label>
+                          <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-border bg-secondary/40 p-1">
+                            {(["Student", "Lecturer"] as SignupRole[]).map((r) => {
+                              const active = signupRole === r;
+                              return (
+                                <button
+                                  key={r} type="button" onClick={() => { setSignupRole(r); setError(""); }}
+                                  className={cn(
+                                    "rounded-xl py-2.5 text-sm font-semibold transition-smooth",
+                                    active ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {r}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Admin accounts are created internally and cannot be self-registered.
+                          </p>
+                        </div>
 
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Or continue with</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
+                        {signupRole === "Student" && (
+                          <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div>
+                              <Label className="text-sm font-semibold">Department</Label>
+                              <Select value={departmentId} onValueChange={setDepartmentId}>
+                                <SelectTrigger className="mt-2 h-12 rounded-2xl border-transparent bg-primary-soft/60">
+                                  <SelectValue placeholder="Select dept" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {departments.map((d) => (
+                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-semibold">Level</Label>
+                              <Select value={level} onValueChange={setLevel}>
+                                <SelectTrigger className="mt-2 h-12 rounded-2xl border-transparent bg-primary-soft/60">
+                                  <SelectValue placeholder="Select level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="100">100 Level</SelectItem>
+                                  <SelectItem value="200">200 Level</SelectItem>
+                                  <SelectItem value="300">300 Level</SelectItem>
+                                  <SelectItem value="400">400 Level</SelectItem>
+                                  <SelectItem value="500">500 Level</SelectItem>
+                                  <SelectItem value="600">600 Level</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
 
-              <button
-                type="button"
-                onClick={handleGoogle}
-                disabled={loading}
-                className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-card text-sm font-semibold transition-smooth hover:border-primary/40 hover:bg-primary-soft disabled:opacity-60"
-              >
-                <GoogleIcon /> Continue with Google
-              </button>
+                        {error && <ErrorBox text={error} />}
+                        <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl gradient-deep text-base font-semibold text-primary-foreground shadow-glow transition-smooth hover:opacity-95">
+                          {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Account"}
+                        </Button>
+                      </form>
+                    </TabsContent>
+                  </Tabs>
+
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Or continue with</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogle}
+                    disabled={loading}
+                    className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-card text-sm font-semibold transition-smooth hover:border-primary/40 hover:bg-primary-soft disabled:opacity-60"
+                  >
+                    <GoogleIcon /> Continue with Google
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>

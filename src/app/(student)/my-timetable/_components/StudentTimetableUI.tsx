@@ -38,7 +38,7 @@ type Slot = {
   lecturer_ids: string[] | null;
   hall_id: string | null;
   hall_ids: string[] | null;
-  day_of_week: string; // Changed from DayName to string to match Supabase
+  day_of_week: string;
   start_time: string;
   end_time: string;
   slot_type: string;
@@ -68,7 +68,7 @@ const DEFAULT_TIME_COLUMNS = [
   { id: "4", start_time: "14:00", end_time: "16:00", sort_order: 4 },
 ];
 
-export default function MyTimetableUI() {
+export default function StudentTimetableUI() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"personal" | "department">("personal");
 
@@ -82,6 +82,7 @@ export default function MyTimetableUI() {
   // Personal View State
   const [personalSlots, setPersonalSlots] = useState<Slot[]>([]);
   const [personalTimeColumns, setPersonalTimeColumns] = useState<TimeColumn[]>(DEFAULT_TIME_COLUMNS);
+  const [personalTimetable, setPersonalTimetable] = useState<Timetable | null>(null);
   const [personalLoading, setPersonalLoading] = useState(true);
 
   // Department View State
@@ -126,38 +127,55 @@ export default function MyTimetableUI() {
     loadRefs();
   }, []);
 
-  // Fetch Personal Data
+  // Fetch Personal Data (Based on user metadata)
   useEffect(() => {
     if (!user) return;
     async function loadPersonal() {
       setPersonalLoading(true);
       try {
-        // Find published timetables
-        const { data: publishedTts } = await supabase
-          .from("manual_timetables")
-          .select("id")
-          .eq("status", "published");
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !authData?.user) throw new Error("Could not fetch user metadata");
 
-        if (!publishedTts || publishedTts.length === 0) {
+        const userMeta = authData.user.user_metadata;
+        const studentDeptId = userMeta?.department_id;
+        const studentLevel = userMeta?.level ? String(userMeta.level) : null;
+
+        if (!studentDeptId || !studentLevel) {
           setPersonalSlots([]);
           return;
         }
 
-        const ttIds = publishedTts.map(t => t.id);
-
-        // Find slots belonging to this user
-        // Using an OR filter for legacy `lecturer_id` and array `lecturer_ids`
-        const { data: slots, error } = await supabase
-          .from("manual_timetable_slots")
+        // Find published timetables for this specific student's department and level
+        const { data: publishedTts, error: ttsError } = await supabase
+          .from("manual_timetables")
           .select("*")
-          .in("timetable_id", ttIds)
-          .or(`lecturer_id.eq.${user!.id},lecturer_ids.cs.{${user!.id}}`);
+          .eq("status", "published")
+          .eq("department_id", studentDeptId)
+          .eq("level", studentLevel)
+          .order("created_at", { ascending: false });
 
-        if (error) throw error;
+        if (ttsError) throw ttsError;
+
+        if (!publishedTts || publishedTts.length === 0) {
+          setPersonalSlots([]);
+          setPersonalTimetable(null);
+          return;
+        }
+
+        // Just pick the most recently created one for this level/dept or the first one
+        const activeTt = publishedTts[0];
+        setPersonalTimetable(activeTt);
+
+        const [{ data: slots }, { data: columns }] = await Promise.all([
+          supabase.from("manual_timetable_slots").select("*").eq("timetable_id", activeTt.id),
+          supabase.from("manual_timetable_time_columns").select("*").eq("timetable_id", activeTt.id).order("sort_order"),
+        ]);
+
         setPersonalSlots(slots || []);
 
-        // Reconstruct unique time columns from slots for personal view
-        if (slots && slots.length > 0) {
+        if (columns && columns.length > 0) {
+          setPersonalTimeColumns(columns);
+        } else if (slots && slots.length > 0) {
           const times = new Set<string>();
           slots.forEach(s => times.add(`${s.start_time}-${s.end_time}`));
           const cols: TimeColumn[] = Array.from(times).map((t, idx) => {
@@ -165,11 +183,13 @@ export default function MyTimetableUI() {
             return { id: `pc-${idx}`, start_time: start, end_time: end, sort_order: idx };
           }).sort((a, b) => a.start_time.localeCompare(b.start_time));
           setPersonalTimeColumns(cols.length > 0 ? cols : DEFAULT_TIME_COLUMNS);
+        } else {
+          setPersonalTimeColumns(DEFAULT_TIME_COLUMNS);
         }
 
       } catch (err) {
         console.error(err);
-        toast.error("Failed to load personal timetable");
+        toast.error("Failed to load your personal timetable");
       } finally {
         setPersonalLoading(false);
       }
@@ -210,7 +230,6 @@ export default function MyTimetableUI() {
         if (columns && columns.length > 0) {
           setDeptTimeColumns(columns);
         } else {
-          // Fallback to deducing from slots
           if (slots && slots.length > 0) {
             const times = new Set<string>();
             slots.forEach(s => times.add(`${s.start_time}-${s.end_time}`));
@@ -247,7 +266,7 @@ export default function MyTimetableUI() {
   // Derived values for rendering
   const activeSlots = viewMode === "personal" ? personalSlots : deptSlots;
   const activeCols = viewMode === "personal" ? personalTimeColumns : deptTimeColumns;
-  const activeTimetable = viewMode === "department" ? allTimetables.find(t => t.id === selectedTimetableId) : null;
+  const activeTimetable = viewMode === "personal" ? personalTimetable : allTimetables.find(t => t.id === selectedTimetableId);
 
   const renderSlotBlock = (slot: Slot) => {
     const courses = (slot.course_ids ?? [])
@@ -276,7 +295,7 @@ export default function MyTimetableUI() {
               <Building2 className="h-3 w-3" /> {halls}
             </p>
           )}
-          {lecs && viewMode === "department" && (
+          {lecs && (
             <p className="text-xs font-medium flex items-center gap-1.5 opacity-90 text-foreground">
               <UserCircle2 className="h-3 w-3" /> {lecs}
             </p>
@@ -291,12 +310,12 @@ export default function MyTimetableUI() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight md:text-3xl text-foreground">
-            {viewMode === "personal" ? "My Timetable" : "Departmental Timetables"}
+            {viewMode === "personal" ? "My Level Timetable" : "Browse Timetables"}
           </h1>
           <p className="mt-1 text-muted-foreground">
             {viewMode === "personal" 
-              ? "Your assigned classes across all published schedules."
-              : "Browse published schedules across the entire university."}
+              ? "The published timetable for your specific level and department."
+              : "Explore published schedules across the entire university."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -305,13 +324,13 @@ export default function MyTimetableUI() {
               onClick={() => setViewMode("personal")}
               className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", viewMode === "personal" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
             >
-              My Personal
+              My Level
             </button>
             <button
               onClick={() => setViewMode("department")}
               className={cn("px-4 py-1.5 text-sm font-medium rounded-md transition-all", viewMode === "department" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
             >
-              Departmental
+              Browse All
             </button>
           </div>
           <Button variant="outline" size="icon" onClick={() => window.print()} title="Print Timetable">
@@ -362,25 +381,23 @@ export default function MyTimetableUI() {
       )}
 
       {/* Timetable Header Card */}
-      {(viewMode === "personal" || activeTimetable) && (
+      {activeTimetable && (
         <div className="rounded-2xl bg-gradient-to-r from-primary to-primary-dark p-6 text-primary-foreground shadow-elegant">
           <div className="flex items-center gap-3 mb-2">
             <CalendarDays className="h-6 w-6 text-primary-foreground/80" />
             <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
-              {viewMode === "personal" ? "Your Combined Teaching Schedule" : activeTimetable?.title}
+              {activeTimetable.title}
             </h2>
           </div>
-          {viewMode === "department" && activeTimetable && (
-            <div className="flex flex-wrap items-center gap-4 text-sm opacity-90 font-medium">
-              <span>{activeTimetable.academic_year}</span>
-              <span>•</span>
-              <span>{activeTimetable.semester} Semester</span>
-              <span>•</span>
-              <span>{activeTimetable.type}</span>
-              <span>•</span>
-              <span>Level {activeTimetable.level}</span>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-4 text-sm opacity-90 font-medium">
+            <span>{activeTimetable.academic_year}</span>
+            <span>•</span>
+            <span>{activeTimetable.semester} Semester</span>
+            <span>•</span>
+            <span>{activeTimetable.type}</span>
+            <span>•</span>
+            <span>Level {activeTimetable.level}</span>
+          </div>
         </div>
       )}
 
@@ -390,10 +407,15 @@ export default function MyTimetableUI() {
           <div className="h-64 flex items-center justify-center text-muted-foreground animate-pulse">
             Loading timetable data...
           </div>
-        ) : viewMode === "department" && !activeTimetable ? (
+        ) : (viewMode === "department" && !activeTimetable) ? (
           <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
             <CalendarDays className="h-10 w-10 mb-3 opacity-20" />
             <p>Select a timetable from the dropdown above to view it here.</p>
+          </div>
+        ) : (viewMode === "personal" && !activeTimetable) ? (
+          <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
+            <CalendarDays className="h-10 w-10 mb-3 opacity-20" />
+            <p>No published timetable found for your department and level.</p>
           </div>
         ) : activeSlots.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">

@@ -25,7 +25,7 @@ type Ctx = {
   user: AuthUser | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; role?: string }>;
   signUp: (input: SignUpInput) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -106,8 +106,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [hydrate]);
 
   const signIn: Ctx["signIn"] = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    return { error: null, role: profile?.role ?? undefined };
   };
 
   const signUp: Ctx["signUp"] = async ({ email, password, displayName, role, departmentId, level }) => {

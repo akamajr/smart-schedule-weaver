@@ -42,7 +42,7 @@ type View = "signin" | "signup" | "forgot";
 
 const Login = () => {
   const router = useRouter();
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, logout } = useAuth();
   const [view, setView] = useState<View>("signin");
 
   // Shared
@@ -86,9 +86,20 @@ const Login = () => {
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) return setError(parsed.error.issues[0].message);
     setLoading(true);
-    const { error: err } = await signIn(parsed.data.email, parsed.data.password);
+    const { error: err, role } = await signIn(parsed.data.email, parsed.data.password);
+    
+    if (err) {
+      setLoading(false);
+      return setError("Invalid login credentials");
+    }
+
+    if (role === "admin") {
+      await logout();
+      setLoading(false);
+      return setError("Admins must use the Admin Login Portal.");
+    }
+
     setLoading(false);
-    if (err) return setError("Invalid login credentials");
     toast.success(`Welcome back!`);
     router.push("/");
   };

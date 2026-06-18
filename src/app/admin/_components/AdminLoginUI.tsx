@@ -28,7 +28,7 @@ interface AdminLoginProps {
 
 const AdminLoginUI = ({ initialView = "signin" }: AdminLoginProps) => {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, logout } = useAuth();
   const [view, setView] = useState<View>(initialView);
 
   // Shared
@@ -53,9 +53,20 @@ const AdminLoginUI = ({ initialView = "signin" }: AdminLoginProps) => {
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) return setError(parsed.error.issues[0].message);
     setLoading(true);
-    const { error: err } = await signIn(parsed.data.email, parsed.data.password);
+    const { error: err, role } = await signIn(parsed.data.email, parsed.data.password);
+    
+    if (err) {
+      setLoading(false);
+      return setError(err);
+    }
+
+    if (role !== "admin") {
+      await logout();
+      setLoading(false);
+      return setError("Unauthorized. Please use the Student/Lecturer login portal.");
+    }
+
     setLoading(false);
-    if (err) return setError(err);
     toast.success(`Admin Authentication Successful`);
     router.push("/dashboard");
   };
